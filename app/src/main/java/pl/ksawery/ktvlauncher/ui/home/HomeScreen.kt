@@ -74,8 +74,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -1697,6 +1697,7 @@ private fun AppContextMenu(
     onUninstall: () -> Unit,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
+    var suppressActivationUntilRelease by remember(app.stableKey) { mutableStateOf(true) }
     LaunchedEffect(app.stableKey) { firstFocusRequester.requestFocus() }
     BackHandler { onClose() }
 
@@ -1704,7 +1705,20 @@ private fun AppContextMenu(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xB3000000)),
+            .background(Color(0xB3000000))
+            .onPreviewKeyEvent { event ->
+                val activationKey = event.key == Key.DirectionCenter ||
+                    event.key == Key.Enter ||
+                    event.key == Key.NumPadEnter
+                if (!activationKey || !suppressActivationUntilRelease) {
+                    false
+                } else {
+                    if (event.type == KeyEventType.KeyUp) {
+                        suppressActivationUntilRelease = false
+                    }
+                    true
+                }
+            },
     ) {
         Column(
             modifier = Modifier
@@ -1872,16 +1886,14 @@ private fun FocusableSurface(
 
                 when (event.type) {
                     KeyEventType.KeyDown -> {
-                        if (event.nativeKeyEvent.repeatCount == 0) {
-                            keyDownStartedHere = true
-                            if (longPressJob == null && onLongClick != null) {
-                                longPressTriggered = false
-                                longPressJob = scope.launch {
-                                    delay(LONG_PRESS_MILLIS)
-                                    longPressJob = null
-                                    longPressTriggered = true
-                                    onLongClick()
-                                }
+                        keyDownStartedHere = true
+                        if (longPressJob == null && onLongClick != null) {
+                            longPressTriggered = false
+                            longPressJob = scope.launch {
+                                delay(LONG_PRESS_MILLIS)
+                                longPressJob = null
+                                longPressTriggered = true
+                                onLongClick()
                             }
                         }
                         true
