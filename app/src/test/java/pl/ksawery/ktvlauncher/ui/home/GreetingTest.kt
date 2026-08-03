@@ -10,7 +10,12 @@ class GreetingTest {
     }
 
     @Test
-    fun `evening starts at eighteen`() {
-        assertEquals("Dobry wieczór", greetingFor(18))
+    fun `day greeting remains at eighteen`() {
+        assertEquals("Dzień dobry", greetingFor(18))
+    }
+
+    @Test
+    fun `evening starts at twenty`() {
+        assertEquals("Dobry wieczór", greetingFor(20))
     }
 }

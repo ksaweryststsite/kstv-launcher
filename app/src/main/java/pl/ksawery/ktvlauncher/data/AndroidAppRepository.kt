@@ -54,7 +54,7 @@ class AndroidAppRepository(
                 activityInfo.packageName
             },
             componentName = ComponentName(activityInfo.packageName, activityInfo.name),
-            icon = info.loadIcon(packageManager).toImageBitmap(144),
+            icon = info.loadIcon(packageManager).toImageBitmap(96),
         )
     }.getOrNull()
 }
