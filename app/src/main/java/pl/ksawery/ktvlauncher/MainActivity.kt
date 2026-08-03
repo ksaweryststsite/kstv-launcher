@@ -1,6 +1,5 @@
 package pl.ksawery.ktvlauncher
 
-import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -74,7 +73,7 @@ class MainActivity : ComponentActivity() {
                     onOpenSettings = { openSystemSettings(Settings.ACTION_SETTINGS) },
                     onOpenWifi = { openSystemSettings(Settings.ACTION_WIFI_SETTINGS) },
                     onOpenNotifications = {
-                        openSystemSettings(Settings.ACTION_NOTIFICATION_SETTINGS)
+                        openSystemSettings(ACTION_NOTIFICATION_SETTINGS)
                     },
                     onOpenAppInfo = { app ->
                         startActivity(
@@ -100,7 +99,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     onRequestWatchNextAccess = {
-                        tvListingsPermission.launch(Manifest.permission.READ_TV_LISTINGS)
+                        tvListingsPermission.launch(READ_TV_LISTINGS_PERMISSION)
                     },
                 )
             }
@@ -128,5 +127,10 @@ class MainActivity : ComponentActivity() {
     private fun openSystemSettings(action: String) {
         runCatching { startActivity(Intent(action)) }
             .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+    }
+
+    private companion object {
+        const val ACTION_NOTIFICATION_SETTINGS = "android.settings.NOTIFICATION_SETTINGS"
+        const val READ_TV_LISTINGS_PERMISSION = "android.permission.READ_TV_LISTINGS"
     }
 }
