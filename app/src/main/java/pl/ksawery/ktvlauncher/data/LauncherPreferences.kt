@@ -170,7 +170,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2d"
         const val PROFILE_VERSION = 1
         const val MAX_RECENT = 8
-        const val MAX_FAVORITES = 8
+        const val MAX_FAVORITES = 7
         const val MAX_DOCK_SHORTCUTS = 3
         const val MAX_FEATURED_APPS = 2
     }

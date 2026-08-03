@@ -681,7 +681,7 @@ private fun ContentShelf(
                         "Najważniejsze aplikacje"
                     },
                 )
-                Spacer(Modifier.height(9.dp))
+                Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     when (shelfMode) {
                         ShelfMode.WatchNext -> {
@@ -741,9 +741,13 @@ private fun ContentShelf(
 
         Column(modifier = Modifier.weight(1f)) {
             SectionTitle("Ulubione aplikacje")
-            Spacer(Modifier.height(9.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                favorites.take(8).forEachIndexed { index, app ->
+            Spacer(Modifier.height(8.dp))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.height(82.dp),
+            ) {
+                favorites.take(7).forEachIndexed { index, app ->
                     FavoriteTile(
                         app = app,
                         onClick = { onLaunchApp(app) },
@@ -804,7 +808,9 @@ private fun FeaturedAppCard(
                 bitmap = app.icon,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp)),
             )
             Spacer(Modifier.width(13.dp))
             Text(
@@ -820,12 +826,18 @@ private fun FeaturedAppCard(
 
 @Composable
 private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        color = KtvColors.TextSecondary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Normal,
-    )
+    Box(
+        contentAlignment = Alignment.CenterStart,
+        modifier = Modifier.height(16.dp),
+    ) {
+        Text(
+            text = text,
+            color = KtvColors.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+        )
+    }
 }
 
 @Composable
@@ -957,7 +969,7 @@ private fun FavoriteTile(
         onLongClick = onLongClick,
         focusedScale = 1.08f,
         shape = RoundedCornerShape(13.dp),
-        modifier = modifier.size(54.dp),
+        modifier = modifier.size(64.dp),
     ) {
         Image(
             bitmap = app.icon,
@@ -1250,7 +1262,7 @@ private fun LauncherSettingsScreen(
                     }
                 }
                 SettingsSection.Apps -> {
-                    SettingRow("Ulubione aplikacje", "Wybrane: ${uiState.favorites.size} / 8", Icons.Rounded.Apps, onEditFavorites)
+                    SettingRow("Ulubione aplikacje", "Wybrane: ${uiState.favorites.size} / 7", Icons.Rounded.Apps, onEditFavorites)
                     SettingsSpacer()
                     SettingRow(
                         "Kolejność wszystkich aplikacji",
