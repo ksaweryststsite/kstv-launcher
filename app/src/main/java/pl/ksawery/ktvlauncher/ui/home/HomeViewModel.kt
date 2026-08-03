@@ -326,7 +326,7 @@ class HomeViewModel(
     }
 
     private companion object {
-        const val MAX_FAVORITES = 7
+        const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
         const val MAX_FEATURED_APPS = 2
         const val MAX_WATCH_NEXT_VISIBLE = 4

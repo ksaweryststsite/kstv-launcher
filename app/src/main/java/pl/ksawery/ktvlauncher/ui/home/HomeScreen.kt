@@ -200,6 +200,7 @@ fun HomeScreen(
     var dockPickerSlot by rememberSaveable { mutableStateOf(0) }
     var featuredPickerSlot by rememberSaveable { mutableStateOf(0) }
     var settingsSection by rememberSaveable { mutableStateOf(SettingsSection.Appearance) }
+    var showResetWallpaperConfirmation by rememberSaveable { mutableStateOf(false) }
     val baseDensity = LocalDensity.current
 
     CompositionLocalProvider(
@@ -251,7 +252,7 @@ fun HomeScreen(
                 section = settingsSection,
                 onSectionChange = { settingsSection = it },
                 onPickWallpaper = onPickWallpaper,
-                onResetWallpaper = onResetWallpaper,
+                onResetWallpaper = { showResetWallpaperConfirmation = true },
                 onExportProfile = onExportProfile,
                 onImportProfile = onImportProfile,
                 onOpenAllApps = { screen = LauncherScreen.Apps },
@@ -333,6 +334,15 @@ fun HomeScreen(
                     contextApp = null
                     onUninstallApp(app)
                 },
+            )
+        }
+        if (showResetWallpaperConfirmation) {
+            ResetWallpaperConfirmation(
+                onConfirm = {
+                    onResetWallpaper()
+                    showResetWallpaperConfirmation = false
+                },
+                onCancel = { showResetWallpaperConfirmation = false },
             )
         }
     }
@@ -682,7 +692,11 @@ private fun ContentShelf(
                     },
                 )
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.height(82.dp),
+                ) {
                     when (shelfMode) {
                         ShelfMode.WatchNext -> {
                             if (watchNext.isNotEmpty()) {
@@ -747,7 +761,7 @@ private fun ContentShelf(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.height(82.dp),
             ) {
-                favorites.take(7).forEachIndexed { index, app ->
+                favorites.take(8).forEachIndexed { index, app ->
                     FavoriteTile(
                         app = app,
                         onClick = { onLaunchApp(app) },
@@ -786,8 +800,8 @@ private fun FeaturedAppCard(
         focusedScale = 1.035f,
         shape = RoundedCornerShape(10.dp),
         modifier = modifier
-            .width(170.dp)
-            .height(82.dp),
+            .width(158.dp)
+            .height(74.dp),
     ) { focused ->
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -809,7 +823,7 @@ private fun FeaturedAppCard(
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(40.dp)
                     .clip(RoundedCornerShape(10.dp)),
             )
             Spacer(Modifier.width(13.dp))
@@ -853,8 +867,8 @@ private fun WatchNextCard(
         focusedScale = 1.035f,
         shape = RoundedCornerShape(10.dp),
         modifier = modifier
-            .width(170.dp)
-            .height(82.dp),
+            .width(158.dp)
+            .height(74.dp),
     ) { focused ->
         Box(
             modifier = Modifier
@@ -939,8 +953,8 @@ private fun WatchNextEmptyCard(
         focusedScale = 1.035f,
         shape = RoundedCornerShape(10.dp),
         modifier = modifier
-            .width(170.dp)
-            .height(82.dp),
+            .width(158.dp)
+            .height(74.dp),
     ) { focused ->
         Box(
             contentAlignment = Alignment.Center,
@@ -969,7 +983,7 @@ private fun FavoriteTile(
         onLongClick = onLongClick,
         focusedScale = 1.08f,
         shape = RoundedCornerShape(13.dp),
-        modifier = modifier.size(64.dp),
+        modifier = modifier.size(54.dp),
     ) {
         Image(
             bitmap = app.icon,
@@ -1262,7 +1276,7 @@ private fun LauncherSettingsScreen(
                     }
                 }
                 SettingsSection.Apps -> {
-                    SettingRow("Ulubione aplikacje", "Wybrane: ${uiState.favorites.size} / 7", Icons.Rounded.Apps, onEditFavorites)
+                    SettingRow("Ulubione aplikacje", "Wybrane: ${uiState.favorites.size} / 8", Icons.Rounded.Apps, onEditFavorites)
                     SettingsSpacer()
                     SettingRow(
                         "Kolejność wszystkich aplikacji",
@@ -1796,6 +1810,49 @@ private fun ContextMenuRow(
                 color = if (danger) Color(0xFFFF8A8A) else KtvColors.TextPrimary,
                 fontSize = 12.sp,
             )
+        }
+    }
+}
+
+@Composable
+private fun ResetWallpaperConfirmation(
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit,
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
+    BackHandler { onCancel() }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xB8000000)),
+    ) {
+        Column(
+            modifier = Modifier
+                .width(340.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(Color(0xF21A1E25))
+                .border(1.dp, Color(0x38FFFFFF), RoundedCornerShape(13.dp))
+                .padding(16.dp),
+        ) {
+            Text(
+                "Przywrócić domyślną tapetę?",
+                color = KtvColors.TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Obecnie wybrana tapeta zostanie usunięta.",
+                color = KtvColors.TextSecondary,
+                fontSize = 11.sp,
+            )
+            Spacer(Modifier.height(14.dp))
+            ContextMenuRow("Anuluj", onCancel, Modifier.focusRequester(firstFocusRequester))
+            Spacer(Modifier.height(4.dp))
+            ContextMenuRow("Przywróć domyślną", onConfirm, danger = true)
         }
     }
 }
