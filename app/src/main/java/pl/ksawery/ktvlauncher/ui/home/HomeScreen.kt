@@ -5,7 +5,6 @@ import android.graphics.BitmapFactory
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
-import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -13,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -50,6 +51,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -83,11 +85,14 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
@@ -98,6 +103,7 @@ private enum class LauncherScreen {
     Settings,
     Favorites,
     DockPicker,
+    FeaturedPicker,
 }
 
 @Composable
@@ -128,6 +134,8 @@ fun HomeRoute(
         onToggleFavorite = viewModel::toggleFavorite,
         onMoveFavorite = viewModel::moveFavorite,
         onSetDockShortcut = viewModel::setDockShortcut,
+        onSetFeaturedApp = viewModel::setFeaturedApp,
+        onCycleShelfMode = viewModel::cycleShelfMode,
         onToggleContinueWatching = { enabled ->
             viewModel.setContinueWatchingEnabled(enabled)
             if (enabled) onRequestWatchNextAccess()
@@ -150,18 +158,23 @@ fun HomeScreen(
     onToggleFavorite: (LaunchableApp) -> Unit,
     onMoveFavorite: (LaunchableApp, Int) -> Unit,
     onSetDockShortcut: (Int, LaunchableApp) -> Unit,
+    onSetFeaturedApp: (Int, LaunchableApp) -> Unit,
+    onCycleShelfMode: () -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
 ) {
     var screen by rememberSaveable { mutableStateOf(LauncherScreen.Home) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
     var contextApp by remember { mutableStateOf<LaunchableApp?>(null) }
     var dockPickerSlot by rememberSaveable { mutableStateOf(0) }
+    var featuredPickerSlot by rememberSaveable { mutableStateOf(0) }
 
     BackHandler(enabled = true) {
         when {
             contextApp != null -> contextApp = null
             showInfo -> showInfo = false
-            screen == LauncherScreen.Favorites || screen == LauncherScreen.DockPicker -> {
+            screen == LauncherScreen.Favorites ||
+                screen == LauncherScreen.DockPicker ||
+                screen == LauncherScreen.FeaturedPicker -> {
                 screen = LauncherScreen.Settings
             }
             screen != LauncherScreen.Home -> screen = LauncherScreen.Home
@@ -199,6 +212,11 @@ fun HomeScreen(
                     dockPickerSlot = slot
                     screen = LauncherScreen.DockPicker
                 },
+                onPickFeaturedApp = { slot ->
+                    featuredPickerSlot = slot
+                    screen = LauncherScreen.FeaturedPicker
+                },
+                onCycleShelfMode = onCycleShelfMode,
                 onToggleContinueWatching = onToggleContinueWatching,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onOpenSystemSettings = onOpenSystemSettings,
@@ -216,6 +234,16 @@ fun HomeScreen(
                 apps = uiState.apps,
                 onSelect = { app ->
                     onSetDockShortcut(dockPickerSlot, app)
+                    screen = LauncherScreen.Settings
+                },
+            )
+
+            LauncherScreen.FeaturedPicker -> DockShortcutPicker(
+                slot = featuredPickerSlot,
+                apps = uiState.apps,
+                title = "Duży skrót ${featuredPickerSlot + 1}",
+                onSelect = { app ->
+                    onSetFeaturedApp(featuredPickerSlot, app)
                     screen = LauncherScreen.Settings
                 },
             )
@@ -321,21 +349,6 @@ private fun HomeDashboard(
                 .padding(top = 26.dp, end = 34.dp),
         )
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .height(maxHeight * 0.37f)
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        0.30f to Color(0x320C1016),
-                        0.68f to Color(0x7D090D13),
-                        1f to Color(0xC9080A0E),
-                    ),
-                ),
-        )
-
         GreetingAndWeather(
             uiState = uiState,
             modifier = Modifier
@@ -344,31 +357,67 @@ private fun HomeDashboard(
                 .padding(start = 34.dp),
         )
 
-        ContentShelf(
-            watchNext = uiState.watchNext,
-            watchNextStatus = uiState.watchNextStatus,
-            apps = uiState.apps,
-            favorites = uiState.favorites,
+        UnifiedDock(
+            uiState = uiState,
+            onOpenSettings = onOpenLauncherSettings,
+            onOpenApps = onOpenApps,
+            onOpenInfo = onOpenInfo,
             onLaunchApp = onLaunchApp,
             onLaunchWatchNext = onLaunchWatchNext,
             onRequestWatchNextAccess = onRequestWatchNextAccess,
             onLongClickApp = onLongClickApp,
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.65f)
-                .padding(horizontal = 34.dp),
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 22.dp)
+                .padding(bottom = 70.dp),
         )
+    }
+}
 
+@Composable
+private fun UnifiedDock(
+    uiState: HomeUiState,
+    onOpenSettings: () -> Unit,
+    onOpenApps: () -> Unit,
+    onOpenInfo: () -> Unit,
+    onLaunchApp: (LaunchableApp) -> Unit,
+    onLaunchWatchNext: (WatchNextItem) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
+    onLongClickApp: (LaunchableApp) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(176.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xB8242A32), Color(0xE00A0E13)),
+                ),
+            )
+            .border(1.dp, Color(0x30FFFFFF), RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+    ) {
+        ContentShelf(
+            shelfMode = uiState.shelfMode,
+            watchNext = uiState.watchNext,
+            watchNextStatus = uiState.watchNextStatus,
+            apps = uiState.apps,
+            featuredApps = uiState.featuredApps,
+            favorites = uiState.favorites,
+            onLaunchApp = onLaunchApp,
+            onLaunchWatchNext = onLaunchWatchNext,
+            onRequestWatchNextAccess = onRequestWatchNextAccess,
+            onLongClickApp = onLongClickApp,
+        )
+        Spacer(Modifier.height(4.dp))
         Dock(
             shortcuts = uiState.dockShortcuts,
-            onOpenSettings = onOpenLauncherSettings,
+            onOpenSettings = onOpenSettings,
             onOpenApps = onOpenApps,
             onOpenInfo = onOpenInfo,
             onLaunchApp = onLaunchApp,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.87f)
-                .padding(horizontal = 34.dp),
         )
     }
 }
@@ -519,9 +568,11 @@ private fun GreetingAndWeather(uiState: HomeUiState, modifier: Modifier = Modifi
 
 @Composable
 private fun ContentShelf(
+    shelfMode: ShelfMode,
     watchNext: List<WatchNextItem>,
     watchNextStatus: WatchNextStatus,
     apps: List<LaunchableApp>,
+    featuredApps: List<LaunchableApp>,
     favorites: List<LaunchableApp>,
     onLaunchApp: (LaunchableApp) -> Unit,
     onLaunchWatchNext: (WatchNextItem) -> Unit,
@@ -530,8 +581,15 @@ private fun ContentShelf(
     modifier: Modifier = Modifier,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(watchNextStatus, favorites.firstOrNull()?.stableKey) {
-        if (watchNext.isNotEmpty() || favorites.isNotEmpty()) firstFocusRequester.requestFocus()
+    LaunchedEffect(
+        shelfMode,
+        watchNextStatus,
+        featuredApps.firstOrNull()?.stableKey,
+        favorites.firstOrNull()?.stableKey,
+    ) {
+        if (watchNext.isNotEmpty() || featuredApps.isNotEmpty() || favorites.isNotEmpty()) {
+            firstFocusRequester.requestFocus()
+        }
     }
 
     Row(
@@ -540,56 +598,148 @@ private fun ContentShelf(
             .fillMaxWidth()
             .height(106.dp),
     ) {
-        Column(modifier = Modifier.width(350.dp)) {
-            SectionTitle("Kontynuuj oglądanie")
-            Spacer(Modifier.height(9.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (watchNext.isNotEmpty()) {
-                    watchNext.take(2).forEachIndexed { index, item ->
-                        WatchNextCard(
-                            item = item,
-                            appIcon = apps.firstOrNull {
-                                it.componentName.packageName == item.packageName
-                            }?.icon,
-                            onClick = { onLaunchWatchNext(item) },
-                            modifier = if (index == 0) {
-                                Modifier.focusRequester(firstFocusRequester)
+        if (shelfMode != ShelfMode.Hidden) {
+            Column(modifier = Modifier.width(350.dp)) {
+                SectionTitle(
+                    if (shelfMode == ShelfMode.WatchNext) {
+                        "Kontynuuj oglądanie"
+                    } else {
+                        "Najważniejsze aplikacje"
+                    },
+                )
+                Spacer(Modifier.height(9.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    when (shelfMode) {
+                        ShelfMode.WatchNext -> {
+                            if (watchNext.isNotEmpty()) {
+                                watchNext.take(2).forEachIndexed { index, item ->
+                                    WatchNextCard(
+                                        item = item,
+                                        appIcon = apps.firstOrNull {
+                                            it.componentName.packageName == item.packageName
+                                        }?.icon,
+                                        onClick = { onLaunchWatchNext(item) },
+                                        modifier = if (index == 0) {
+                                            Modifier.focusRequester(firstFocusRequester)
+                                        } else {
+                                            Modifier
+                                        },
+                                    )
+                                }
                             } else {
-                                Modifier
-                            },
-                        )
+                                WatchNextEmptyCard(
+                                    status = watchNextStatus,
+                                    onClick = onRequestWatchNextAccess,
+                                    modifier = Modifier.focusRequester(firstFocusRequester),
+                                )
+                            }
+                        }
+
+                        ShelfMode.AppShortcuts -> {
+                            featuredApps.take(2).forEachIndexed { index, app ->
+                                FeaturedAppCard(
+                                    app = app,
+                                    onClick = { onLaunchApp(app) },
+                                    onLongClick = { onLongClickApp(app) },
+                                    modifier = if (index == 0) {
+                                        Modifier.focusRequester(firstFocusRequester)
+                                    } else {
+                                        Modifier
+                                    },
+                                )
+                            }
+                        }
+
+                        ShelfMode.Hidden -> Unit
                     }
-                } else {
-                    WatchNextEmptyCard(
-                        status = watchNextStatus,
-                        onClick = onRequestWatchNextAccess,
-                        modifier = Modifier.focusRequester(firstFocusRequester),
-                    )
                 }
             }
-        }
 
-        Spacer(Modifier.width(18.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .width(1.dp)
-                .background(Color(0x26FFFFFF)),
-        )
-        Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(18.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .width(1.dp)
+                    .background(Color(0x26FFFFFF)),
+            )
+            Spacer(Modifier.width(18.dp))
+        }
 
         Column(modifier = Modifier.weight(1f)) {
             SectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(9.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                favorites.take(8).forEach { app ->
+                favorites.take(8).forEachIndexed { index, app ->
                     FavoriteTile(
                         app = app,
                         onClick = { onLaunchApp(app) },
                         onLongClick = { onLongClickApp(app) },
+                        modifier = if (
+                            index == 0 &&
+                            (
+                                shelfMode == ShelfMode.Hidden ||
+                                    (
+                                        shelfMode == ShelfMode.AppShortcuts &&
+                                            featuredApps.isEmpty()
+                                    )
+                            )
+                        ) {
+                            Modifier.focusRequester(firstFocusRequester)
+                        } else {
+                            Modifier
+                        },
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedAppCard(
+    app: LaunchableApp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        focusedScale = 1.035f,
+        shape = RoundedCornerShape(10.dp),
+        modifier = modifier
+            .width(170.dp)
+            .height(82.dp),
+    ) { focused ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        if (focused) {
+                            listOf(Color(0xA4363D48), Color(0xD312171E))
+                        } else {
+                            listOf(Color(0x70242A32), Color(0xB20B0F14))
+                        },
+                    ),
+                )
+                .padding(horizontal = 16.dp),
+        ) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(44.dp),
+            )
+            Spacer(Modifier.width(13.dp))
+            Text(
+                text = app.label,
+                color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -630,10 +780,7 @@ private fun WatchNextCard(
                     bitmap = poster,
                     contentDescription = item.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .fillMaxWidth()
-                        .height(64.dp),
+                    modifier = Modifier.fillMaxSize(),
                 )
             } else if (appIcon != null) {
                 Image(
@@ -641,9 +788,8 @@ private fun WatchNextCard(
                     contentDescription = item.title,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(start = 12.dp, top = 10.dp)
-                        .size(42.dp),
+                        .align(Alignment.Center)
+                        .size(48.dp),
                 )
             }
 
@@ -652,33 +798,15 @@ private fun WatchNextCard(
                 contentDescription = null,
                 tint = KtvColors.TextPrimary,
                 modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 21.dp, end = 11.dp)
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 11.dp)
                     .size(21.dp),
             )
-
-            Box(
-                contentAlignment = Alignment.CenterStart,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .height(18.dp)
-                    .background(Color(0xE3090C11))
-                    .padding(horizontal = 8.dp),
-            ) {
-                Text(
-                    text = if (focused) "Otwórz" else "Kontynuuj",
-                    color = KtvColors.TextSecondary,
-                    fontSize = 8.sp,
-                    maxLines = 1,
-                )
-            }
 
             item.progressPercent?.let { progress ->
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(bottom = 17.dp)
                         .fillMaxWidth(progress)
                         .height(2.dp)
                         .background(Color(0xFFECEFF3)),
@@ -878,13 +1006,6 @@ private fun DockShortcut(
                 )
                 .padding(horizontal = 12.dp),
         ) {
-            Image(
-                bitmap = app.icon,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(21.dp),
-            )
-            Spacer(Modifier.width(9.dp))
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
@@ -902,6 +1023,8 @@ private fun LauncherSettingsScreen(
     onPickWallpaper: () -> Unit,
     onEditFavorites: () -> Unit,
     onPickDockShortcut: (Int) -> Unit,
+    onPickFeaturedApp: (Int) -> Unit,
+    onCycleShelfMode: () -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
     onRequestWatchNextAccess: () -> Unit,
     onOpenSystemSettings: () -> Unit,
@@ -914,11 +1037,17 @@ private fun LauncherSettingsScreen(
         WatchNextStatus.Empty -> "Brak opublikowanych materiałów"
         WatchNextStatus.Unavailable -> "Wymagany dostęp systemowy"
     }
+    val shelfModeLabel = when (uiState.shelfMode) {
+        ShelfMode.WatchNext -> "Kontynuuj oglądanie"
+        ShelfMode.AppShortcuts -> "Dwa duże skróty"
+        ShelfMode.Hidden -> "Ukryta"
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xD6080A0E))
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 70.dp, vertical = 34.dp),
     ) {
         Text(
@@ -944,6 +1073,22 @@ private fun LauncherSettingsScreen(
             onClick = onEditFavorites,
         )
         Spacer(Modifier.height(9.dp))
+        SettingRow(
+            title = "Lewa sekcja",
+            value = "$shelfModeLabel · OK, aby zmienić",
+            icon = Icons.Rounded.PlayArrow,
+            onClick = onCycleShelfMode,
+        )
+        Spacer(Modifier.height(9.dp))
+        repeat(2) { slot ->
+            SettingRow(
+                title = "Duży skrót ${slot + 1}",
+                value = uiState.featuredApps.getOrNull(slot)?.label ?: "Nie ustawiono",
+                icon = Icons.Rounded.Apps,
+                onClick = { onPickFeaturedApp(slot) },
+            )
+            Spacer(Modifier.height(9.dp))
+        }
         repeat(3) { slot ->
             SettingRow(
                 title = "Skrót docka ${slot + 1}",
@@ -1126,6 +1271,7 @@ private fun EditorAppTile(
 private fun DockShortcutPicker(
     slot: Int,
     apps: List<LaunchableApp>,
+    title: String = "Skrót docka ${slot + 1}",
     onSelect: (LaunchableApp) -> Unit,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
@@ -1139,7 +1285,7 @@ private fun DockShortcutPicker(
             .padding(horizontal = 54.dp, vertical = 30.dp),
     ) {
         Text(
-            "Skrót docka ${slot + 1}",
+            title,
             color = KtvColors.TextPrimary,
             fontSize = 27.sp,
             fontWeight = FontWeight.Medium,
@@ -1233,6 +1379,7 @@ private fun AllAppsTile(
         onLongClick = onLongClick,
         focusedScale = 1.055f,
         shape = RoundedCornerShape(14.dp),
+        showFocusBorder = false,
         modifier = modifier
             .fillMaxWidth()
             .height(94.dp),
@@ -1244,23 +1391,14 @@ private fun AllAppsTile(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(68.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            if (focused) {
-                                listOf(Color(0xA84A5361), Color(0xC51B212A))
-                            } else {
-                                listOf(Color(0x4D343C48), Color(0x7A11161D))
-                            },
-                        ),
-                    )
                     .border(
                         1.dp,
-                        if (focused) Color(0x8AFFFFFF) else Color(0x18FFFFFF),
+                        if (focused) Color(0xB8FFFFFF) else Color.Transparent,
                         RoundedCornerShape(14.dp),
                     )
-                    .padding(8.dp),
+                    .padding(3.dp),
             ) {
                 Image(
                     bitmap = app.icon,
@@ -1388,7 +1526,7 @@ private fun InfoOverlay(onClose: () -> Unit) {
             modifier = Modifier
                 .focusRequester(focusRequester)
                 .width(300.dp)
-                .height(150.dp),
+                .height(170.dp),
         ) { focused ->
             Column(
                 verticalArrangement = Arrangement.Center,
@@ -1404,7 +1542,13 @@ private fun InfoOverlay(onClose: () -> Unit) {
                     color = KtvColors.TextSecondary,
                     fontSize = 14.sp,
                 )
-                Spacer(Modifier.height(18.dp))
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "Created by Ksawery S. & Alex",
+                    color = Color(0xFF8F98A6),
+                    fontSize = 10.sp,
+                )
+                Spacer(Modifier.height(16.dp))
                 Text(
                     if (focused) "OK — zamknij" else "Naciśnij OK",
                     color = KtvColors.Accent,
@@ -1421,11 +1565,14 @@ private fun FocusableSurface(
     onLongClick: (() -> Unit)? = null,
     focusedScale: Float,
     shape: Shape,
+    showFocusBorder: Boolean = true,
     modifier: Modifier = Modifier,
     content: @Composable (focused: Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
-    var pressedAt by remember { mutableStateOf(0L) }
+    var longPressJob by remember { mutableStateOf<Job?>(null) }
+    var longPressTriggered by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     val scale by animateFloatAsState(
         targetValue = if (focused) focusedScale else 1f,
         animationSpec = tween(durationMillis = 105),
@@ -1442,7 +1589,11 @@ private fun FocusableSurface(
             }
             .border(
                 width = 1.dp,
-                color = if (focused) Color(0x99FFFFFF) else Color.Transparent,
+                color = if (focused && showFocusBorder) {
+                    Color(0x99FFFFFF)
+                } else {
+                    Color.Transparent
+                },
                 shape = shape,
             )
             .onFocusChanged { focused = it.isFocused }
@@ -1454,17 +1605,23 @@ private fun FocusableSurface(
 
                 when (event.type) {
                     KeyEventType.KeyDown -> {
-                        if (pressedAt == 0L) pressedAt = SystemClock.elapsedRealtime()
+                        if (longPressJob == null && onLongClick != null) {
+                            longPressTriggered = false
+                            longPressJob = scope.launch {
+                                delay(LONG_PRESS_MILLIS)
+                                longPressTriggered = true
+                                onLongClick()
+                            }
+                        }
                         true
                     }
                     KeyEventType.KeyUp -> {
-                        val pressDuration = SystemClock.elapsedRealtime() - pressedAt
-                        pressedAt = 0L
-                        if (pressDuration >= 550L && onLongClick != null) {
-                            onLongClick()
-                        } else {
+                        longPressJob?.cancel()
+                        longPressJob = null
+                        if (!longPressTriggered) {
                             onClick()
                         }
+                        longPressTriggered = false
                         true
                     }
                     else -> false
@@ -1480,6 +1637,8 @@ internal fun greetingFor(hour: Int): String = when (hour) {
     in 5..19 -> "Dzień dobry"
     else -> "Dobry wieczór"
 }
+
+private const val LONG_PRESS_MILLIS = 550L
 
 private fun isNetworkOnline(context: Context): Boolean {
     val connectivityManager = context.getSystemService(ConnectivityManager::class.java)

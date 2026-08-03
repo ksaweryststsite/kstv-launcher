@@ -13,6 +13,7 @@ import pl.ksawery.ktvlauncher.data.LauncherPreferences
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 
 class HomeViewModel(
@@ -25,6 +26,7 @@ class HomeViewModel(
         HomeUiState(
             wallpaperUri = preferences.wallpaperUri(),
             continueWatchingEnabled = preferences.continueWatchingEnabled(),
+            shelfMode = preferences.shelfMode(),
         ),
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -133,6 +135,26 @@ class HomeViewModel(
         applyApps(_uiState.value.apps)
     }
 
+    fun setFeaturedApp(slot: Int, app: LaunchableApp) {
+        val components = preferences.featuredComponents().toMutableList()
+        while (components.size <= slot) {
+            components += app.componentName
+        }
+        components[slot] = app.componentName
+        preferences.setFeaturedComponents(components)
+        applyApps(_uiState.value.apps)
+    }
+
+    fun cycleShelfMode() {
+        val mode = when (_uiState.value.shelfMode) {
+            ShelfMode.WatchNext -> ShelfMode.AppShortcuts
+            ShelfMode.AppShortcuts -> ShelfMode.Hidden
+            ShelfMode.Hidden -> ShelfMode.WatchNext
+        }
+        preferences.setShelfMode(mode)
+        _uiState.update { it.copy(shelfMode = mode) }
+    }
+
     fun setContinueWatchingEnabled(enabled: Boolean) {
         preferences.setContinueWatchingEnabled(enabled)
         _uiState.update { it.copy(continueWatchingEnabled = enabled) }
@@ -155,6 +177,17 @@ class HomeViewModel(
             preferences.setDockComponents(dockComponents)
         }
 
+        var featuredComponents = preferences.featuredComponents()
+        if (featuredComponents.isEmpty()) {
+            featuredComponents = favorites
+                .filter { app ->
+                    FEATURED_LABELS.any { label -> app.label.contains(label, ignoreCase = true) }
+                }
+                .take(MAX_FEATURED_APPS)
+                .map { it.componentName }
+            preferences.setFeaturedComponents(featuredComponents)
+        }
+
         _uiState.update {
             it.copy(
                 isLoading = false,
@@ -162,6 +195,9 @@ class HomeViewModel(
                 favorites = favorites,
                 dockShortcuts = dockComponents.mapNotNull(appsByComponent::get)
                     .take(MAX_DOCK_SHORTCUTS),
+                featuredApps = featuredComponents.mapNotNull(appsByComponent::get)
+                    .take(MAX_FEATURED_APPS),
+                shelfMode = preferences.shelfMode(),
                 recent = selectRecent(apps),
             )
         }
@@ -194,6 +230,8 @@ class HomeViewModel(
     private companion object {
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
+        const val MAX_FEATURED_APPS = 2
+        val FEATURED_LABELS = listOf("Netflix", "Prime Video")
         val FAVORITE_LABELS = listOf(
             "Netflix", "Spotify", "YouTube", "Prime Video",
             "Disney+", "Twitch", "cda.pl", "HBO Max",

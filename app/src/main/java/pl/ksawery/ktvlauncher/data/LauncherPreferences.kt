@@ -2,6 +2,7 @@ package pl.ksawery.ktvlauncher.data
 
 import android.content.ComponentName
 import android.content.Context
+import pl.ksawery.ktvlauncher.model.ShelfMode
 
 class LauncherPreferences(context: Context) {
     private val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
@@ -27,6 +28,20 @@ class LauncherPreferences(context: Context) {
 
     fun setDockComponents(components: List<ComponentName>) {
         writeComponentList(KEY_DOCK, components.take(MAX_DOCK_SHORTCUTS))
+    }
+
+    fun featuredComponents(): List<ComponentName> = readComponentList(KEY_FEATURED)
+
+    fun setFeaturedComponents(components: List<ComponentName>) {
+        writeComponentList(KEY_FEATURED, components.take(MAX_FEATURED_APPS))
+    }
+
+    fun shelfMode(): ShelfMode = runCatching {
+        ShelfMode.valueOf(preferences.getString(KEY_SHELF_MODE, null).orEmpty())
+    }.getOrDefault(ShelfMode.WatchNext)
+
+    fun setShelfMode(mode: ShelfMode) {
+        preferences.edit().putString(KEY_SHELF_MODE, mode.name).apply()
     }
 
     fun continueWatchingEnabled(): Boolean =
@@ -59,10 +74,13 @@ class LauncherPreferences(context: Context) {
         const val KEY_RECENT = "recent_components_v2"
         const val KEY_FAVORITES = "favorite_components"
         const val KEY_DOCK = "dock_components"
+        const val KEY_FEATURED = "featured_components"
+        const val KEY_SHELF_MODE = "shelf_mode"
         const val KEY_CONTINUE_WATCHING = "continue_watching_enabled"
-        const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2c"
+        const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2d"
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
+        const val MAX_FEATURED_APPS = 2
     }
 }
