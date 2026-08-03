@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -60,6 +61,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -79,17 +81,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.WatchNextItem
+import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
 
 private enum class LauncherScreen {
     Home,
     Apps,
+    Settings,
+    Favorites,
+    DockPicker,
 }
 
 @Composable
@@ -98,13 +106,32 @@ fun HomeRoute(
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenWifi: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenAppInfo: (LaunchableApp) -> Unit,
+    onUninstallApp: (LaunchableApp) -> Unit,
+    onLaunchWatchNext: (WatchNextItem) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     HomeScreen(
         uiState = uiState,
         onLaunchApp = onLaunchApp,
         onPickWallpaper = onPickWallpaper,
-        onOpenSettings = onOpenSettings,
+        onOpenSystemSettings = onOpenSettings,
+        onOpenWifi = onOpenWifi,
+        onOpenNotifications = onOpenNotifications,
+        onOpenAppInfo = onOpenAppInfo,
+        onUninstallApp = onUninstallApp,
+        onLaunchWatchNext = onLaunchWatchNext,
+        onRequestWatchNextAccess = onRequestWatchNextAccess,
+        onToggleFavorite = viewModel::toggleFavorite,
+        onMoveFavorite = viewModel::moveFavorite,
+        onSetDockShortcut = viewModel::setDockShortcut,
+        onToggleContinueWatching = { enabled ->
+            viewModel.setContinueWatchingEnabled(enabled)
+            if (enabled) onRequestWatchNextAccess()
+        },
     )
 }
 
@@ -113,15 +140,31 @@ fun HomeScreen(
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+    onOpenWifi: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenAppInfo: (LaunchableApp) -> Unit,
+    onUninstallApp: (LaunchableApp) -> Unit,
+    onLaunchWatchNext: (WatchNextItem) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
+    onToggleFavorite: (LaunchableApp) -> Unit,
+    onMoveFavorite: (LaunchableApp, Int) -> Unit,
+    onSetDockShortcut: (Int, LaunchableApp) -> Unit,
+    onToggleContinueWatching: (Boolean) -> Unit,
 ) {
     var screen by rememberSaveable { mutableStateOf(LauncherScreen.Home) }
     var showInfo by rememberSaveable { mutableStateOf(false) }
+    var contextApp by remember { mutableStateOf<LaunchableApp?>(null) }
+    var dockPickerSlot by rememberSaveable { mutableStateOf(0) }
 
     BackHandler(enabled = true) {
         when {
+            contextApp != null -> contextApp = null
             showInfo -> showInfo = false
-            screen == LauncherScreen.Apps -> screen = LauncherScreen.Home
+            screen == LauncherScreen.Favorites || screen == LauncherScreen.DockPicker -> {
+                screen = LauncherScreen.Settings
+            }
+            screen != LauncherScreen.Home -> screen = LauncherScreen.Home
         }
     }
 
@@ -133,19 +176,83 @@ fun HomeScreen(
                 uiState = uiState,
                 onLaunchApp = onLaunchApp,
                 onOpenApps = { screen = LauncherScreen.Apps },
-                onPickWallpaper = onPickWallpaper,
-                onOpenSettings = onOpenSettings,
+                onOpenLauncherSettings = { screen = LauncherScreen.Settings },
                 onOpenInfo = { showInfo = true },
+                onOpenWifi = onOpenWifi,
+                onOpenNotifications = onOpenNotifications,
+                onLaunchWatchNext = onLaunchWatchNext,
+                onRequestWatchNextAccess = onRequestWatchNextAccess,
+                onLongClickApp = { contextApp = it },
             )
 
             LauncherScreen.Apps -> AllAppsScreen(
                 apps = uiState.apps,
                 onLaunchApp = onLaunchApp,
+                onLongClickApp = { contextApp = it },
+            )
+
+            LauncherScreen.Settings -> LauncherSettingsScreen(
+                uiState = uiState,
+                onPickWallpaper = onPickWallpaper,
+                onEditFavorites = { screen = LauncherScreen.Favorites },
+                onPickDockShortcut = { slot ->
+                    dockPickerSlot = slot
+                    screen = LauncherScreen.DockPicker
+                },
+                onToggleContinueWatching = onToggleContinueWatching,
+                onRequestWatchNextAccess = onRequestWatchNextAccess,
+                onOpenSystemSettings = onOpenSystemSettings,
+            )
+
+            LauncherScreen.Favorites -> FavoritesEditor(
+                apps = uiState.apps,
+                favorites = uiState.favorites,
+                onToggleFavorite = onToggleFavorite,
+                onLongClickApp = { contextApp = it },
+            )
+
+            LauncherScreen.DockPicker -> DockShortcutPicker(
+                slot = dockPickerSlot,
+                apps = uiState.apps,
+                onSelect = { app ->
+                    onSetDockShortcut(dockPickerSlot, app)
+                    screen = LauncherScreen.Settings
+                },
             )
         }
 
         if (showInfo) {
             InfoOverlay(onClose = { showInfo = false })
+        }
+
+        contextApp?.let { app ->
+            AppContextMenu(
+                app = app,
+                isFavorite = app in uiState.favorites,
+                onClose = { contextApp = null },
+                onOpen = {
+                    contextApp = null
+                    onLaunchApp(app)
+                },
+                onToggleFavorite = {
+                    onToggleFavorite(app)
+                    contextApp = null
+                },
+                onMoveLeft = { onMoveFavorite(app, -1) },
+                onMoveRight = { onMoveFavorite(app, 1) },
+                onSetDock = { slot ->
+                    onSetDockShortcut(slot, app)
+                    contextApp = null
+                },
+                onAppInfo = {
+                    contextApp = null
+                    onOpenAppInfo(app)
+                },
+                onUninstall = {
+                    contextApp = null
+                    onUninstallApp(app)
+                },
+            )
         }
     }
 }
@@ -197,15 +304,34 @@ private fun HomeDashboard(
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onOpenApps: () -> Unit,
-    onPickWallpaper: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenLauncherSettings: () -> Unit,
     onOpenInfo: () -> Unit,
+    onOpenWifi: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onLaunchWatchNext: (WatchNextItem) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
+    onLongClickApp: (LaunchableApp) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         StatusAndClock(
+            onOpenWifi = onOpenWifi,
+            onOpenNotifications = onOpenNotifications,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 26.dp, end = 34.dp),
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .height(maxHeight * 0.43f)
+                .background(Color(0x8F090C11))
+                .border(
+                    width = 1.dp,
+                    color = Color(0x22FFFFFF),
+                    shape = RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp),
+                ),
         )
 
         GreetingAndWeather(
@@ -217,13 +343,14 @@ private fun HomeDashboard(
         )
 
         ContentShelf(
-            recent = if (uiState.recent.isNotEmpty()) {
-                uiState.recent
-            } else {
-                uiState.favorites.take(2)
-            },
+            watchNext = uiState.watchNext,
+            watchNextStatus = uiState.watchNextStatus,
+            apps = uiState.apps,
             favorites = uiState.favorites,
             onLaunchApp = onLaunchApp,
+            onLaunchWatchNext = onLaunchWatchNext,
+            onRequestWatchNextAccess = onRequestWatchNextAccess,
+            onLongClickApp = onLongClickApp,
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .offset(y = maxHeight * 0.59f)
@@ -231,9 +358,8 @@ private fun HomeDashboard(
         )
 
         Dock(
-            shortcuts = uiState.favorites.take(2),
-            onOpenSettings = onOpenSettings,
-            onPickWallpaper = onPickWallpaper,
+            shortcuts = uiState.dockShortcuts,
+            onOpenSettings = onOpenLauncherSettings,
             onOpenApps = onOpenApps,
             onOpenInfo = onOpenInfo,
             onLaunchApp = onLaunchApp,
@@ -246,7 +372,11 @@ private fun HomeDashboard(
 }
 
 @Composable
-private fun StatusAndClock(modifier: Modifier = Modifier) {
+private fun StatusAndClock(
+    onOpenWifi: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val isOnline = remember { isNetworkOnline(context) }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
@@ -264,7 +394,7 @@ private fun StatusAndClock(modifier: Modifier = Modifier) {
 
     Row(modifier = modifier, verticalAlignment = Alignment.Top) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .height(38.dp)
@@ -273,11 +403,11 @@ private fun StatusAndClock(modifier: Modifier = Modifier) {
                 .border(1.dp, Color(0x18FFFFFF), RoundedCornerShape(20.dp))
                 .padding(horizontal = 14.dp),
         ) {
-            Icon(
-                imageVector = Icons.Rounded.Wifi,
+            StatusIconButton(
+                icon = Icons.Rounded.Wifi,
                 contentDescription = "Wi-Fi",
                 tint = if (isOnline) KtvColors.TextPrimary else KtvColors.TextSecondary,
-                modifier = Modifier.size(20.dp),
+                onClick = onOpenWifi,
             )
             Box(
                 contentAlignment = Alignment.Center,
@@ -287,11 +417,11 @@ private fun StatusAndClock(modifier: Modifier = Modifier) {
             ) {
                 Text("11", color = KtvColors.TextPrimary, fontSize = 10.sp)
             }
-            Icon(
-                imageVector = Icons.Rounded.NotificationsNone,
+            StatusIconButton(
+                icon = Icons.Rounded.NotificationsNone,
                 contentDescription = "Powiadomienia",
                 tint = KtvColors.TextPrimary,
-                modifier = Modifier.size(20.dp),
+                onClick = onOpenNotifications,
             )
         }
         Spacer(Modifier.width(20.dp))
@@ -306,6 +436,35 @@ private fun StatusAndClock(modifier: Modifier = Modifier) {
                 text = now.format(dateFormatter).replaceFirstChar(Char::uppercase),
                 color = KtvColors.TextSecondary,
                 fontSize = 13.sp,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        focusedScale = 1.08f,
+        shape = CircleShape,
+        modifier = Modifier.size(25.dp),
+    ) { focused ->
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (focused) Color(0x40FFFFFF) else Color.Transparent),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(19.dp),
             )
         }
     }
@@ -358,14 +517,19 @@ private fun GreetingAndWeather(uiState: HomeUiState, modifier: Modifier = Modifi
 
 @Composable
 private fun ContentShelf(
-    recent: List<LaunchableApp>,
+    watchNext: List<WatchNextItem>,
+    watchNextStatus: WatchNextStatus,
+    apps: List<LaunchableApp>,
     favorites: List<LaunchableApp>,
     onLaunchApp: (LaunchableApp) -> Unit,
+    onLaunchWatchNext: (WatchNextItem) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
+    onLongClickApp: (LaunchableApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(recent.firstOrNull()?.stableKey) {
-        if (recent.isNotEmpty()) firstFocusRequester.requestFocus()
+    LaunchedEffect(watchNextStatus, favorites.firstOrNull()?.stableKey) {
+        if (watchNext.isNotEmpty() || favorites.isNotEmpty()) firstFocusRequester.requestFocus()
     }
 
     Row(
@@ -378,15 +542,26 @@ private fun ContentShelf(
             SectionTitle("Kontynuuj oglądanie")
             Spacer(Modifier.height(9.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                recent.take(2).forEachIndexed { index, app ->
-                    ContinueCard(
-                        app = app,
-                        onClick = { onLaunchApp(app) },
-                        modifier = if (index == 0) {
-                            Modifier.focusRequester(firstFocusRequester)
-                        } else {
-                            Modifier
-                        },
+                if (watchNext.isNotEmpty()) {
+                    watchNext.take(2).forEachIndexed { index, item ->
+                        WatchNextCard(
+                            item = item,
+                            appIcon = apps.firstOrNull {
+                                it.componentName.packageName == item.packageName
+                            }?.icon,
+                            onClick = { onLaunchWatchNext(item) },
+                            modifier = if (index == 0) {
+                                Modifier.focusRequester(firstFocusRequester)
+                            } else {
+                                Modifier
+                            },
+                        )
+                    }
+                } else {
+                    WatchNextEmptyCard(
+                        status = watchNextStatus,
+                        onClick = onRequestWatchNextAccess,
+                        modifier = Modifier.focusRequester(firstFocusRequester),
                     )
                 }
             }
@@ -406,7 +581,11 @@ private fun ContentShelf(
             Spacer(Modifier.height(9.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 favorites.take(8).forEach { app ->
-                    FavoriteTile(app = app, onClick = { onLaunchApp(app) })
+                    FavoriteTile(
+                        app = app,
+                        onClick = { onLaunchApp(app) },
+                        onLongClick = { onLongClickApp(app) },
+                    )
                 }
             }
         }
@@ -424,11 +603,13 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun ContinueCard(
-    app: LaunchableApp,
+private fun WatchNextCard(
+    item: WatchNextItem,
+    appIcon: ImageBitmap?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val poster = rememberUriImage(item.posterUri)
     FocusableSurface(
         onClick = onClick,
         focusedScale = 1.035f,
@@ -446,15 +627,33 @@ private fun ContinueCard(
                     ),
                 ),
         ) {
-            Image(
-                bitmap = app.icon,
-                contentDescription = app.label,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 14.dp, bottom = 18.dp)
-                    .size(42.dp),
-            )
+            if (poster != null) {
+                Image(
+                    bitmap = poster,
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color.Transparent, Color(0xD9090B0F)),
+                            ),
+                        ),
+                )
+            } else if (appIcon != null) {
+                Image(
+                    bitmap = appIcon,
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = 14.dp, bottom = 18.dp)
+                        .size(42.dp),
+                )
+            }
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -463,14 +662,14 @@ private fun ContinueCard(
                     .padding(horizontal = 9.dp, vertical = 5.dp),
             ) {
                 Text(
-                    text = app.label,
+                    text = item.title,
                     color = KtvColors.TextPrimary,
                     fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = if (focused) "Naciśnij OK" else "Wróć do aplikacji",
+                    text = item.description ?: if (focused) "Otwórz" else "Kontynuuj",
                     color = KtvColors.TextSecondary,
                     fontSize = 8.sp,
                 )
@@ -484,32 +683,96 @@ private fun ContinueCard(
                     .padding(end = 14.dp, bottom = 18.dp)
                     .size(22.dp),
             )
+            item.progressPercent?.let { progress ->
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth(progress)
+                        .height(2.dp)
+                        .background(KtvColors.TextPrimary),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun FavoriteTile(app: LaunchableApp, onClick: () -> Unit) {
+private fun rememberUriImage(uri: String?): ImageBitmap? {
+    val context = LocalContext.current
+    val image by produceState<ImageBitmap?>(initialValue = null, key1 = uri) {
+        value = uri?.let { value ->
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val parsed = Uri.parse(value)
+                    val stream = when (parsed.scheme) {
+                        "http", "https" -> URL(value).openStream()
+                        else -> context.contentResolver.openInputStream(parsed)
+                    }
+                    stream?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                }.getOrNull()
+            }
+        }
+    }
+    return image
+}
+
+@Composable
+private fun WatchNextEmptyCard(
+    status: WatchNextStatus,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val message = when (status) {
+        WatchNextStatus.Loading -> "Ładowanie…"
+        WatchNextStatus.Empty -> "Brak materiałów"
+        WatchNextStatus.Unavailable -> "Nadaj dostęp"
+        WatchNextStatus.Ready -> "Brak materiałów"
+    }
     FocusableSurface(
         onClick = onClick,
-        focusedScale = 1.08f,
-        shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.size(54.dp),
-    ) {
+        focusedScale = 1.035f,
+        shape = RoundedCornerShape(10.dp),
+        modifier = modifier
+            .width(170.dp)
+            .height(82.dp),
+    ) { focused ->
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xD91A1E25))
-                .padding(7.dp),
+                .background(Color(0xA8171A20)),
         ) {
-            Image(
-                bitmap = app.icon,
-                contentDescription = app.label,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
+            Text(
+                text = message,
+                color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
+                fontSize = 11.sp,
             )
         }
+    }
+}
+
+@Composable
+private fun FavoriteTile(
+    app: LaunchableApp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        focusedScale = 1.08f,
+        shape = RoundedCornerShape(13.dp),
+        modifier = modifier.size(54.dp),
+    ) {
+        Image(
+            bitmap = app.icon,
+            contentDescription = app.label,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(13.dp)),
+        )
     }
 }
 
@@ -517,7 +780,6 @@ private fun FavoriteTile(app: LaunchableApp, onClick: () -> Unit) {
 private fun Dock(
     shortcuts: List<LaunchableApp>,
     onOpenSettings: () -> Unit,
-    onPickWallpaper: () -> Unit,
     onOpenApps: () -> Unit,
     onOpenInfo: () -> Unit,
     onLaunchApp: (LaunchableApp) -> Unit,
@@ -529,15 +791,13 @@ private fun Dock(
             .fillMaxWidth()
             .height(58.dp),
     ) {
-        DockAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
-        DockAction("Tapeta", Icons.Rounded.Wallpaper, onPickWallpaper, Modifier.weight(1f))
+        DockAction("Ustawienia launchera", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
         DockAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
         DockAction("Informacje", Icons.Rounded.Info, onOpenInfo, Modifier.weight(1f))
-        shortcuts.getOrNull(0)?.let { app ->
-            DockShortcut(app, { onLaunchApp(app) }, Modifier.weight(1f))
-        }
-        shortcuts.getOrNull(1)?.let { app ->
-            DockShortcut(app, { onLaunchApp(app) }, Modifier.weight(1f))
+        repeat(3) { index ->
+            shortcuts.getOrNull(index)?.let { app ->
+                DockShortcut(app, { onLaunchApp(app) }, Modifier.weight(1f))
+            } ?: Spacer(Modifier.weight(1f))
         }
     }
 }
@@ -592,21 +852,13 @@ private fun DockShortcut(
         shape = RoundedCornerShape(9.dp),
         modifier = modifier.fillMaxHeight(),
     ) { focused ->
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
                 .background(if (focused) Color(0xD9272C34) else Color(0xA8171A20))
                 .padding(horizontal = 12.dp),
         ) {
-            Image(
-                bitmap = app.icon,
-                contentDescription = null,
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(22.dp),
-            )
-            Spacer(Modifier.width(9.dp))
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
@@ -619,9 +871,279 @@ private fun DockShortcut(
 }
 
 @Composable
+private fun LauncherSettingsScreen(
+    uiState: HomeUiState,
+    onPickWallpaper: () -> Unit,
+    onEditFavorites: () -> Unit,
+    onPickDockShortcut: (Int) -> Unit,
+    onToggleContinueWatching: (Boolean) -> Unit,
+    onRequestWatchNextAccess: () -> Unit,
+    onOpenSystemSettings: () -> Unit,
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
+    val watchNextLabel = when (uiState.watchNextStatus) {
+        WatchNextStatus.Loading -> "Sprawdzanie danych…"
+        WatchNextStatus.Ready -> "Dostępne materiały: ${uiState.watchNext.size}"
+        WatchNextStatus.Empty -> "Brak opublikowanych materiałów"
+        WatchNextStatus.Unavailable -> "Wymagany dostęp systemowy"
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xD6080A0E))
+            .padding(horizontal = 70.dp, vertical = 34.dp),
+    ) {
+        Text(
+            "Ustawienia launchera",
+            color = KtvColors.TextPrimary,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.height(22.dp))
+
+        SettingRow(
+            title = "Tapeta",
+            value = "Wybierz obraz z pamięci",
+            icon = Icons.Rounded.Wallpaper,
+            onClick = onPickWallpaper,
+            modifier = Modifier.focusRequester(firstFocusRequester),
+        )
+        Spacer(Modifier.height(9.dp))
+        SettingRow(
+            title = "Ulubione aplikacje",
+            value = "Wybrane: ${uiState.favorites.size} / 8",
+            icon = Icons.Rounded.Apps,
+            onClick = onEditFavorites,
+        )
+        Spacer(Modifier.height(9.dp))
+        repeat(3) { slot ->
+            SettingRow(
+                title = "Skrót docka ${slot + 1}",
+                value = uiState.dockShortcuts.getOrNull(slot)?.label ?: "Nie ustawiono",
+                icon = Icons.Rounded.PlayArrow,
+                onClick = { onPickDockShortcut(slot) },
+            )
+            Spacer(Modifier.height(9.dp))
+        }
+        SettingRow(
+            title = "Kontynuuj oglądanie",
+            value = watchNextLabel,
+            icon = Icons.Rounded.PlayArrow,
+            onClick = {
+                if (
+                    uiState.continueWatchingEnabled &&
+                    uiState.watchNextStatus == WatchNextStatus.Unavailable
+                ) {
+                    onRequestWatchNextAccess()
+                } else {
+                    onToggleContinueWatching(!uiState.continueWatchingEnabled)
+                }
+            },
+            trailingText = if (uiState.continueWatchingEnabled) "Wł." else "Wył.",
+        )
+        Spacer(Modifier.height(9.dp))
+        SettingRow(
+            title = "Ustawienia systemowe",
+            value = "Sieć, dźwięk i urządzenie",
+            icon = Icons.Rounded.Settings,
+            onClick = onOpenSystemSettings,
+        )
+    }
+}
+
+@Composable
+private fun SettingRow(
+    title: String,
+    value: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailingText: String? = null,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        focusedScale = 1.012f,
+        shape = RoundedCornerShape(9.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(48.dp),
+    ) { focused ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (focused) Color(0xD9272C34) else Color(0xA8171A20))
+                .padding(horizontal = 16.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(13.dp))
+            Column {
+                Text(title, color = KtvColors.TextPrimary, fontSize = 13.sp)
+                Text(value, color = KtvColors.TextSecondary, fontSize = 10.sp)
+            }
+            Spacer(Modifier.weight(1f))
+            trailingText?.let {
+                Text(it, color = KtvColors.Accent, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FavoritesEditor(
+    apps: List<LaunchableApp>,
+    favorites: List<LaunchableApp>,
+    onToggleFavorite: (LaunchableApp) -> Unit,
+    onLongClickApp: (LaunchableApp) -> Unit,
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(apps.firstOrNull()?.stableKey) {
+        if (apps.isNotEmpty()) firstFocusRequester.requestFocus()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xD6080A0E))
+            .padding(horizontal = 54.dp, vertical = 30.dp),
+    ) {
+        Text(
+            "Ulubione aplikacje",
+            color = KtvColors.TextPrimary,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.height(20.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(8),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(apps, key = LaunchableApp::stableKey) { app ->
+                EditorAppTile(
+                    app = app,
+                    selectedIndex = favorites.indexOf(app),
+                    onClick = { onToggleFavorite(app) },
+                    onLongClick = { onLongClickApp(app) },
+                    modifier = if (app == apps.first()) {
+                        Modifier.focusRequester(firstFocusRequester)
+                    } else Modifier,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorAppTile(
+    app: LaunchableApp,
+    selectedIndex: Int,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        focusedScale = 1.055f,
+        shape = RoundedCornerShape(14.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(94.dp),
+    ) { focused ->
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(14.dp)),
+            ) {
+                Image(
+                    bitmap = app.icon,
+                    contentDescription = app.label,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                if (selectedIndex >= 0) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(19.dp)
+                            .background(KtvColors.Accent, CircleShape),
+                    ) {
+                        Text("${selectedIndex + 1}", color = Color.Black, fontSize = 9.sp)
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                app.label,
+                color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DockShortcutPicker(
+    slot: Int,
+    apps: List<LaunchableApp>,
+    onSelect: (LaunchableApp) -> Unit,
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(apps.firstOrNull()?.stableKey) {
+        if (apps.isNotEmpty()) firstFocusRequester.requestFocus()
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xD6080A0E))
+            .padding(horizontal = 54.dp, vertical = 30.dp),
+    ) {
+        Text(
+            "Skrót docka ${slot + 1}",
+            color = KtvColors.TextPrimary,
+            fontSize = 27.sp,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.height(20.dp))
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(8),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(apps, key = LaunchableApp::stableKey) { app ->
+                AllAppsTile(
+                    app = app,
+                    onClick = { onSelect(app) },
+                    onLongClick = { },
+                    modifier = if (app == apps.first()) {
+                        Modifier.focusRequester(firstFocusRequester)
+                    } else Modifier,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun AllAppsScreen(
     apps: List<LaunchableApp>,
     onLaunchApp: (LaunchableApp) -> Unit,
+    onLongClickApp: (LaunchableApp) -> Unit,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
     LaunchedEffect(apps.firstOrNull()?.stableKey) {
@@ -656,6 +1178,7 @@ private fun AllAppsScreen(
                     AllAppsTile(
                         app = app,
                         onClick = { onLaunchApp(app) },
+                        onLongClick = { onLongClickApp(app) },
                         modifier = if (app == apps.first()) {
                             Modifier.focusRequester(firstFocusRequester)
                         } else {
@@ -672,10 +1195,12 @@ private fun AllAppsScreen(
 private fun AllAppsTile(
     app: LaunchableApp,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FocusableSurface(
         onClick = onClick,
+        onLongClick = onLongClick,
         focusedScale = 1.055f,
         shape = RoundedCornerShape(14.dp),
         modifier = modifier
@@ -708,6 +1233,95 @@ private fun AllAppsTile(
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppContextMenu(
+    app: LaunchableApp,
+    isFavorite: Boolean,
+    onClose: () -> Unit,
+    onOpen: () -> Unit,
+    onToggleFavorite: () -> Unit,
+    onMoveLeft: () -> Unit,
+    onMoveRight: () -> Unit,
+    onSetDock: (Int) -> Unit,
+    onAppInfo: () -> Unit,
+    onUninstall: () -> Unit,
+) {
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(app.stableKey) { firstFocusRequester.requestFocus() }
+    BackHandler { onClose() }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xB3000000)),
+    ) {
+        Column(
+            modifier = Modifier
+                .width(330.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(Color(0xF21A1E25))
+                .border(1.dp, Color(0x30FFFFFF), RoundedCornerShape(13.dp))
+                .padding(14.dp),
+        ) {
+            Text(
+                app.label,
+                color = KtvColors.TextPrimary,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(10.dp))
+            ContextMenuRow("Otwórz", onOpen, Modifier.focusRequester(firstFocusRequester))
+            ContextMenuRow(
+                if (isFavorite) "Usuń z ulubionych" else "Dodaj do ulubionych",
+                onToggleFavorite,
+            )
+            if (isFavorite) {
+                ContextMenuRow("Przesuń w lewo", onMoveLeft)
+                ContextMenuRow("Przesuń w prawo", onMoveRight)
+            }
+            repeat(3) { slot ->
+                ContextMenuRow("Ustaw jako skrót ${slot + 1}", { onSetDock(slot) })
+            }
+            ContextMenuRow("Informacje o aplikacji", onAppInfo)
+            ContextMenuRow("Odinstaluj", onUninstall, danger = true)
+        }
+    }
+}
+
+@Composable
+private fun ContextMenuRow(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    danger: Boolean = false,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        focusedScale = 1.01f,
+        shape = RoundedCornerShape(7.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(34.dp),
+    ) { focused ->
+        Box(
+            contentAlignment = Alignment.CenterStart,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (focused) Color(0x40FFFFFF) else Color.Transparent)
+                .padding(horizontal = 10.dp),
+        ) {
+            Text(
+                label,
+                color = if (danger) Color(0xFFFF8A8A) else KtvColors.TextPrimary,
+                fontSize = 12.sp,
             )
         }
     }
@@ -761,12 +1375,14 @@ private fun InfoOverlay(onClose: () -> Unit) {
 @Composable
 private fun FocusableSurface(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     focusedScale: Float,
-    shape: RoundedCornerShape,
+    shape: Shape,
     modifier: Modifier = Modifier,
     content: @Composable (focused: Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var pressedAt by remember { mutableStateOf(0L) }
     val scale by animateFloatAsState(
         targetValue = if (focused) focusedScale else 1f,
         animationSpec = tween(durationMillis = 105),
@@ -791,11 +1407,24 @@ private fun FocusableSurface(
                 val activationKey = event.key == Key.DirectionCenter ||
                     event.key == Key.Enter ||
                     event.key == Key.NumPadEnter
-                if (activationKey && event.type == KeyEventType.KeyUp) {
-                    onClick()
-                    true
-                } else {
-                    false
+                if (!activationKey) return@onKeyEvent false
+
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (pressedAt == 0L) pressedAt = SystemClock.elapsedRealtime()
+                        true
+                    }
+                    KeyEventType.KeyUp -> {
+                        val pressDuration = SystemClock.elapsedRealtime() - pressedAt
+                        pressedAt = 0L
+                        if (pressDuration >= 550L && onLongClick != null) {
+                            onLongClick()
+                        } else {
+                            onClick()
+                        }
+                        true
+                    }
+                    else -> false
                 }
             }
             .focusable(),

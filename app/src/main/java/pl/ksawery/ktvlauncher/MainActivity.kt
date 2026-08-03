@@ -1,13 +1,14 @@
 package pl.ksawery.ktvlauncher
 
+import android.Manifest
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.remember
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -15,6 +16,7 @@ import androidx.lifecycle.ViewModelProvider
 import pl.ksawery.ktvlauncher.data.AndroidAppRepository
 import pl.ksawery.ktvlauncher.data.LauncherPreferences
 import pl.ksawery.ktvlauncher.data.WeatherRepository
+import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.domain.AppLauncher
 import pl.ksawery.ktvlauncher.ui.home.HomeRoute
 import pl.ksawery.ktvlauncher.ui.home.HomeViewModel
@@ -36,6 +38,7 @@ class MainActivity : ComponentActivity() {
         val viewModelFactory = HomeViewModelFactory(
             appRepository = appRepository,
             weatherRepository = WeatherRepository(),
+            watchNextRepository = WatchNextRepository(this),
             preferences = preferences,
         )
         val appLauncher = AppLauncher(this)
@@ -55,10 +58,11 @@ class MainActivity : ComponentActivity() {
                     homeViewModel.setWallpaperUri(it.toString())
                 }
             }
-            val openSettings = remember(this) {
-                { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+            val tvListingsPermission = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission(),
+            ) {
+                homeViewModel.refreshWatchNext()
             }
-
             KtvLauncherTheme {
                 HomeRoute(
                     viewModel = homeViewModel,
@@ -67,7 +71,37 @@ class MainActivity : ComponentActivity() {
                         appLauncher.launch(app)
                     },
                     onPickWallpaper = { wallpaperPicker.launch(arrayOf("image/*")) },
-                    onOpenSettings = openSettings,
+                    onOpenSettings = { openSystemSettings(Settings.ACTION_SETTINGS) },
+                    onOpenWifi = { openSystemSettings(Settings.ACTION_WIFI_SETTINGS) },
+                    onOpenNotifications = {
+                        openSystemSettings(Settings.ACTION_NOTIFICATION_SETTINGS)
+                    },
+                    onOpenAppInfo = { app ->
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:${app.componentName.packageName}"),
+                            ),
+                        )
+                    },
+                    onUninstallApp = { app ->
+                        startActivity(
+                            Intent(
+                                Intent.ACTION_DELETE,
+                                Uri.parse("package:${app.componentName.packageName}"),
+                            ),
+                        )
+                    },
+                    onLaunchWatchNext = { item ->
+                        item.intentUri?.let { intentUri ->
+                            runCatching {
+                                startActivity(Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME))
+                            }
+                        }
+                    },
+                    onRequestWatchNextAccess = {
+                        tvListingsPermission.launch(Manifest.permission.READ_TV_LISTINGS)
+                    },
                 )
             }
         }
@@ -89,5 +123,10 @@ class MainActivity : ComponentActivity() {
             systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
+    }
+
+    private fun openSystemSettings(action: String) {
+        runCatching { startActivity(Intent(action)) }
+            .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 }
