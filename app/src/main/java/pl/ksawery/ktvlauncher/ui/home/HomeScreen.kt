@@ -325,13 +325,13 @@ private fun HomeDashboard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .height(maxHeight * 0.43f)
+                .height(maxHeight * 0.37f)
                 .background(
                     Brush.verticalGradient(
                         0f to Color.Transparent,
-                        0.22f to Color(0x260C1016),
-                        0.58f to Color(0x7A0A0E14),
-                        1f to Color(0xD9080A0E),
+                        0.30f to Color(0x320C1016),
+                        0.68f to Color(0x7D090D13),
+                        1f to Color(0xC9080A0E),
                     ),
                 ),
         )
@@ -355,7 +355,7 @@ private fun HomeDashboard(
             onLongClickApp = onLongClickApp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.59f)
+                .offset(y = maxHeight * 0.65f)
                 .padding(horizontal = 34.dp),
         )
 
@@ -367,7 +367,7 @@ private fun HomeDashboard(
             onLaunchApp = onLaunchApp,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.81f)
+                .offset(y = maxHeight * 0.87f)
                 .padding(horizontal = 34.dp),
         )
     }
@@ -623,11 +623,7 @@ private fun WatchNextCard(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(Color(0x8A1A1F27), Color(0xC90A0D12)),
-                    ),
-                ),
+                .background(Color(0xB30B0E13)),
         ) {
             if (poster != null) {
                 Image(
@@ -637,7 +633,7 @@ private fun WatchNextCard(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(60.dp),
+                        .height(64.dp),
                 )
             } else if (appIcon != null) {
                 Image(
@@ -646,7 +642,7 @@ private fun WatchNextCard(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(start = 12.dp, top = 9.dp)
+                        .padding(start = 12.dp, top = 10.dp)
                         .size(42.dp),
                 )
             }
@@ -657,29 +653,24 @@ private fun WatchNextCard(
                 tint = KtvColors.TextPrimary,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 19.dp, end = 11.dp)
-                    .size(22.dp),
+                    .padding(top = 21.dp, end = 11.dp)
+                    .size(21.dp),
             )
 
-            Column(
-                verticalArrangement = Arrangement.Center,
+            Box(
+                contentAlignment = Alignment.CenterStart,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
-                    .height(22.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            listOf(Color(0xC9141820), Color(0xEB090C11)),
-                        ),
-                    )
+                    .height(18.dp)
+                    .background(Color(0xE3090C11))
                     .padding(horizontal = 8.dp),
             ) {
                 Text(
-                    text = item.title,
-                    color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
-                    fontSize = 9.sp,
+                    text = if (focused) "Otwórz" else "Kontynuuj",
+                    color = KtvColors.TextSecondary,
+                    fontSize = 8.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -687,7 +678,7 @@ private fun WatchNextCard(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(bottom = 21.dp)
+                        .padding(bottom = 17.dp)
                         .fillMaxWidth(progress)
                         .height(2.dp)
                         .background(Color(0xFFECEFF3)),
@@ -792,7 +783,7 @@ private fun Dock(
             .fillMaxWidth()
             .height(58.dp),
     ) {
-        DockAction("Ustawienia launchera", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
+        DockAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
         DockAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
         DockAction("Informacje", Icons.Rounded.Info, onOpenInfo, Modifier.weight(1f))
         repeat(3) { index ->
@@ -866,8 +857,9 @@ private fun DockShortcut(
         shape = RoundedCornerShape(9.dp),
         modifier = modifier.fillMaxHeight(),
     ) { focused ->
-        Box(
-            contentAlignment = Alignment.Center,
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxSize()
                 .background(
@@ -886,6 +878,13 @@ private fun DockShortcut(
                 )
                 .padding(horizontal = 12.dp),
         ) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(21.dp),
+            )
+            Spacer(Modifier.width(9.dp))
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,

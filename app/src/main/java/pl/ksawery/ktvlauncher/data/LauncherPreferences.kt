@@ -60,7 +60,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_FAVORITES = "favorite_components"
         const val KEY_DOCK = "dock_components"
         const val KEY_CONTINUE_WATCHING = "continue_watching_enabled"
-        const val KEY_WALLPAPER_URI = "wallpaper_uri"
+        const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2c"
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
