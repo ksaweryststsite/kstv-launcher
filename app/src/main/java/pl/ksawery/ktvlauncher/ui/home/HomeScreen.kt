@@ -32,6 +32,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as lazyItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -46,6 +48,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +66,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Offset
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -74,10 +78,12 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.LocalDateTime
@@ -93,6 +99,7 @@ import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.ShelfMode
+import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
@@ -106,11 +113,21 @@ private enum class LauncherScreen {
     FeaturedPicker,
 }
 
+private enum class SettingsSection {
+    Appearance,
+    Layout,
+    Dock,
+    Apps,
+    System,
+}
+
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel,
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
+    onExportProfile: () -> Unit,
+    onImportProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenWifi: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -124,6 +141,8 @@ fun HomeRoute(
         uiState = uiState,
         onLaunchApp = onLaunchApp,
         onPickWallpaper = onPickWallpaper,
+        onExportProfile = onExportProfile,
+        onImportProfile = onImportProfile,
         onOpenSystemSettings = onOpenSettings,
         onOpenWifi = onOpenWifi,
         onOpenNotifications = onOpenNotifications,
@@ -136,6 +155,11 @@ fun HomeRoute(
         onSetDockShortcut = viewModel::setDockShortcut,
         onSetFeaturedApp = viewModel::setFeaturedApp,
         onCycleShelfMode = viewModel::cycleShelfMode,
+        onResetWallpaper = viewModel::resetWallpaper,
+        onToggleDockBackground = viewModel::toggleDockBackground,
+        onCycleUiScale = viewModel::cycleUiScale,
+        onCycleWatchNextSource = viewModel::cycleWatchNextSource,
+        onMoveApp = viewModel::moveApp,
         onToggleContinueWatching = { enabled ->
             viewModel.setContinueWatchingEnabled(enabled)
             if (enabled) onRequestWatchNextAccess()
@@ -148,6 +172,8 @@ fun HomeScreen(
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
+    onExportProfile: () -> Unit,
+    onImportProfile: () -> Unit,
     onOpenSystemSettings: () -> Unit,
     onOpenWifi: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -160,6 +186,11 @@ fun HomeScreen(
     onSetDockShortcut: (Int, LaunchableApp) -> Unit,
     onSetFeaturedApp: (Int, LaunchableApp) -> Unit,
     onCycleShelfMode: () -> Unit,
+    onResetWallpaper: () -> Unit,
+    onToggleDockBackground: () -> Unit,
+    onCycleUiScale: () -> Unit,
+    onCycleWatchNextSource: () -> Unit,
+    onMoveApp: (LaunchableApp, Int) -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
 ) {
     var screen by rememberSaveable { mutableStateOf(LauncherScreen.Home) }
@@ -167,6 +198,14 @@ fun HomeScreen(
     var contextApp by remember { mutableStateOf<LaunchableApp?>(null) }
     var dockPickerSlot by rememberSaveable { mutableStateOf(0) }
     var featuredPickerSlot by rememberSaveable { mutableStateOf(0) }
+    val baseDensity = LocalDensity.current
+
+    CompositionLocalProvider(
+        LocalDensity provides Density(
+            density = baseDensity.density * uiState.uiScale.multiplier,
+            fontScale = baseDensity.fontScale,
+        ),
+    ) {
 
     BackHandler(enabled = true) {
         when {
@@ -200,6 +239,7 @@ fun HomeScreen(
 
             LauncherScreen.Apps -> AllAppsScreen(
                 apps = uiState.apps,
+                recentlyAdded = uiState.recentlyAdded,
                 onLaunchApp = onLaunchApp,
                 onLongClickApp = { contextApp = it },
             )
@@ -207,6 +247,10 @@ fun HomeScreen(
             LauncherScreen.Settings -> LauncherSettingsScreen(
                 uiState = uiState,
                 onPickWallpaper = onPickWallpaper,
+                onResetWallpaper = onResetWallpaper,
+                onExportProfile = onExportProfile,
+                onImportProfile = onImportProfile,
+                onOpenAllApps = { screen = LauncherScreen.Apps },
                 onEditFavorites = { screen = LauncherScreen.Favorites },
                 onPickDockShortcut = { slot ->
                     dockPickerSlot = slot
@@ -217,6 +261,9 @@ fun HomeScreen(
                     screen = LauncherScreen.FeaturedPicker
                 },
                 onCycleShelfMode = onCycleShelfMode,
+                onToggleDockBackground = onToggleDockBackground,
+                onCycleUiScale = onCycleUiScale,
+                onCycleWatchNextSource = onCycleWatchNextSource,
                 onToggleContinueWatching = onToggleContinueWatching,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onOpenSystemSettings = onOpenSystemSettings,
@@ -268,6 +315,8 @@ fun HomeScreen(
                 },
                 onMoveLeft = { onMoveFavorite(app, -1) },
                 onMoveRight = { onMoveFavorite(app, 1) },
+                onMoveAppUp = { onMoveApp(app, -1) },
+                onMoveAppDown = { onMoveApp(app, 1) },
                 onSetDock = { slot ->
                     onSetDockShortcut(slot, app)
                     contextApp = null
@@ -282,6 +331,7 @@ fun HomeScreen(
                 },
             )
         }
+    }
     }
 }
 
@@ -344,6 +394,7 @@ private fun HomeDashboard(
         StatusAndClock(
             onOpenWifi = onOpenWifi,
             onOpenNotifications = onOpenNotifications,
+            onOpenSettings = onOpenLauncherSettings,
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 26.dp, end = 34.dp),
@@ -369,7 +420,7 @@ private fun HomeDashboard(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 22.dp)
-                .padding(bottom = 70.dp),
+                .padding(bottom = 16.dp),
         )
     }
 }
@@ -391,13 +442,27 @@ private fun UnifiedDock(
             .fillMaxWidth()
             .height(176.dp)
             .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xB8242A32), Color(0xE00A0E13)),
-                ),
+            .then(
+                if (uiState.dockBackgroundEnabled) {
+                    Modifier
+                        .background(
+                            Brush.verticalGradient(
+                                listOf(Color(0x8F262B33), Color(0xD90A0E14)),
+                            ),
+                        )
+                        .background(
+                            Brush.radialGradient(
+                                colors = listOf(Color(0x42E2A25C), Color.Transparent),
+                                center = Offset(920f, -90f),
+                                radius = 760f,
+                            ),
+                        )
+                        .border(1.dp, Color(0x4AFFFFFF), RoundedCornerShape(18.dp))
+                } else {
+                    Modifier
+                },
             )
-            .border(1.dp, Color(0x30FFFFFF), RoundedCornerShape(18.dp))
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .padding(start = 14.dp, top = 4.dp, end = 14.dp, bottom = 10.dp),
     ) {
         ContentShelf(
             shelfMode = uiState.shelfMode,
@@ -411,7 +476,7 @@ private fun UnifiedDock(
             onRequestWatchNextAccess = onRequestWatchNextAccess,
             onLongClickApp = onLongClickApp,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(8.dp))
         Dock(
             shortcuts = uiState.dockShortcuts,
             onOpenSettings = onOpenSettings,
@@ -426,6 +491,7 @@ private fun UnifiedDock(
 private fun StatusAndClock(
     onOpenWifi: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -443,7 +509,19 @@ private fun StatusAndClock(
         }
     }
 
-    Row(modifier = modifier, verticalAlignment = Alignment.Top) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.End) {
+        Text(
+            text = now.format(timeFormatter),
+            color = KtvColors.TextPrimary,
+            fontSize = 31.sp,
+            fontWeight = FontWeight.Normal,
+        )
+        Text(
+            text = now.format(dateFormatter).replaceFirstChar(Char::uppercase),
+            color = KtvColors.TextSecondary,
+            fontSize = 13.sp,
+        )
+        Spacer(Modifier.height(9.dp))
         Row(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -474,19 +552,11 @@ private fun StatusAndClock(
                 tint = KtvColors.TextPrimary,
                 onClick = onOpenNotifications,
             )
-        }
-        Spacer(Modifier.width(20.dp))
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = now.format(timeFormatter),
-                color = KtvColors.TextPrimary,
-                fontSize = 31.sp,
-                fontWeight = FontWeight.Normal,
-            )
-            Text(
-                text = now.format(dateFormatter).replaceFirstChar(Char::uppercase),
-                color = KtvColors.TextSecondary,
-                fontSize = 13.sp,
+            StatusIconButton(
+                icon = Icons.Rounded.Settings,
+                contentDescription = "Ustawienia launchera",
+                tint = KtvColors.TextPrimary,
+                onClick = onOpenSettings,
             )
         }
     }
@@ -736,7 +806,7 @@ private fun FeaturedAppCard(
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -909,7 +979,7 @@ private fun Dock(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = modifier
             .fillMaxWidth()
-            .height(58.dp),
+            .height(48.dp),
     ) {
         DockAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
         DockAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
@@ -1009,7 +1079,7 @@ private fun DockShortcut(
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -1021,16 +1091,24 @@ private fun DockShortcut(
 private fun LauncherSettingsScreen(
     uiState: HomeUiState,
     onPickWallpaper: () -> Unit,
+    onResetWallpaper: () -> Unit,
+    onExportProfile: () -> Unit,
+    onImportProfile: () -> Unit,
+    onOpenAllApps: () -> Unit,
     onEditFavorites: () -> Unit,
     onPickDockShortcut: (Int) -> Unit,
     onPickFeaturedApp: (Int) -> Unit,
     onCycleShelfMode: () -> Unit,
+    onToggleDockBackground: () -> Unit,
+    onCycleUiScale: () -> Unit,
+    onCycleWatchNextSource: () -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
     onRequestWatchNextAccess: () -> Unit,
     onOpenSystemSettings: () -> Unit,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
+    var section by rememberSaveable { mutableStateOf(SettingsSection.Appearance) }
     val watchNextLabel = when (uiState.watchNextStatus) {
         WatchNextStatus.Loading -> "Sprawdzanie danych…"
         WatchNextStatus.Ready -> "Dostępne materiały: ${uiState.watchNext.size}"
@@ -1042,87 +1120,194 @@ private fun LauncherSettingsScreen(
         ShelfMode.AppShortcuts -> "Dwa duże skróty"
         ShelfMode.Hidden -> "Ukryta"
     }
+    val scaleLabel = when (uiState.uiScale) {
+        UiScale.Auto -> "Automatyczna"
+        UiScale.Compact -> "Mniejsza"
+        UiScale.Comfortable -> "Większa"
+    }
+    val watchSourceLabel = uiState.watchNextSourcePackage?.let { packageName ->
+        uiState.watchNextSources.firstOrNull {
+            it.componentName.packageName == packageName
+        }?.label ?: packageName
+    } ?: "Wszystkie dostępne"
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xD6080A0E))
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 70.dp, vertical = 34.dp),
+            .background(Color(0xF0080B10))
+            .padding(horizontal = 36.dp, vertical = 28.dp),
     ) {
-        Text(
-            "Ustawienia launchera",
-            color = KtvColors.TextPrimary,
-            fontSize = 27.sp,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.height(22.dp))
-
-        SettingRow(
-            title = "Tapeta",
-            value = "Wybierz obraz z pamięci",
-            icon = Icons.Rounded.Wallpaper,
-            onClick = onPickWallpaper,
-            modifier = Modifier.focusRequester(firstFocusRequester),
-        )
-        Spacer(Modifier.height(9.dp))
-        SettingRow(
-            title = "Ulubione aplikacje",
-            value = "Wybrane: ${uiState.favorites.size} / 8",
-            icon = Icons.Rounded.Apps,
-            onClick = onEditFavorites,
-        )
-        Spacer(Modifier.height(9.dp))
-        SettingRow(
-            title = "Lewa sekcja",
-            value = "$shelfModeLabel · OK, aby zmienić",
-            icon = Icons.Rounded.PlayArrow,
-            onClick = onCycleShelfMode,
-        )
-        Spacer(Modifier.height(9.dp))
-        repeat(2) { slot ->
-            SettingRow(
-                title = "Duży skrót ${slot + 1}",
-                value = uiState.featuredApps.getOrNull(slot)?.label ?: "Nie ustawiono",
-                icon = Icons.Rounded.Apps,
-                onClick = { onPickFeaturedApp(slot) },
-            )
-            Spacer(Modifier.height(9.dp))
+        Column(modifier = Modifier.width(220.dp)) {
+            Text("Ustawienia", color = KtvColors.TextPrimary, fontSize = 27.sp)
+            Text("KSTV Launcher", color = KtvColors.TextSecondary, fontSize = 12.sp)
+            Spacer(Modifier.height(24.dp))
+            SettingsSection.entries.forEachIndexed { index, item ->
+                SettingsNavigationRow(
+                    title = when (item) {
+                        SettingsSection.Appearance -> "Wygląd"
+                        SettingsSection.Layout -> "Układ ekranu"
+                        SettingsSection.Dock -> "Dock i skróty"
+                        SettingsSection.Apps -> "Aplikacje"
+                        SettingsSection.System -> "System"
+                    },
+                    selected = section == item,
+                    onClick = { section = item },
+                    modifier = if (index == 0) {
+                        Modifier.focusRequester(firstFocusRequester)
+                    } else Modifier,
+                )
+                Spacer(Modifier.height(6.dp))
+            }
         }
-        repeat(3) { slot ->
-            SettingRow(
-                title = "Skrót docka ${slot + 1}",
-                value = uiState.dockShortcuts.getOrNull(slot)?.label ?: "Nie ustawiono",
-                icon = Icons.Rounded.PlayArrow,
-                onClick = { onPickDockShortcut(slot) },
+        Box(
+            modifier = Modifier
+                .fillMaxHeight()
+                .padding(horizontal = 26.dp)
+                .width(1.dp)
+                .background(Color(0x2EFFFFFF)),
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Text(
+                text = when (section) {
+                    SettingsSection.Appearance -> "Wygląd"
+                    SettingsSection.Layout -> "Układ ekranu"
+                    SettingsSection.Dock -> "Dock i skróty"
+                    SettingsSection.Apps -> "Aplikacje"
+                    SettingsSection.System -> "System i profil"
+                },
+                color = KtvColors.TextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Medium,
             )
-            Spacer(Modifier.height(9.dp))
-        }
-        SettingRow(
-            title = "Kontynuuj oglądanie",
-            value = watchNextLabel,
-            icon = Icons.Rounded.PlayArrow,
-            onClick = {
-                if (
-                    uiState.continueWatchingEnabled &&
-                    uiState.watchNextStatus == WatchNextStatus.Unavailable
-                ) {
-                    onRequestWatchNextAccess()
-                } else {
-                    onToggleContinueWatching(!uiState.continueWatchingEnabled)
+            Spacer(Modifier.height(18.dp))
+            when (section) {
+                SettingsSection.Appearance -> {
+                    SettingRow("Wybierz tapetę", "Obraz z pamięci urządzenia", Icons.Rounded.Wallpaper, onPickWallpaper)
+                    SettingsSpacer()
+                    SettingRow("Przywróć domyślną", "Wbudowana tapeta KSTV", Icons.Rounded.Wallpaper, onResetWallpaper)
                 }
-            },
-            trailingText = if (uiState.continueWatchingEnabled) "Wł." else "Wył.",
-        )
-        Spacer(Modifier.height(9.dp))
-        SettingRow(
-            title = "Ustawienia systemowe",
-            value = "Sieć, dźwięk i urządzenie",
-            icon = Icons.Rounded.Settings,
-            onClick = onOpenSystemSettings,
-        )
+                SettingsSection.Layout -> {
+                    SettingRow("Skala interfejsu", "$scaleLabel · OK, aby zmienić", Icons.Rounded.Apps, onCycleUiScale)
+                    SettingsSpacer()
+                    SettingRow("Lewa sekcja", "$shelfModeLabel · OK, aby zmienić", Icons.Rounded.PlayArrow, onCycleShelfMode)
+                    SettingsSpacer()
+                    SettingRow(
+                        "Kontynuuj oglądanie",
+                        watchNextLabel,
+                        Icons.Rounded.PlayArrow,
+                        onClick = {
+                            if (uiState.continueWatchingEnabled && uiState.watchNextStatus == WatchNextStatus.Unavailable) {
+                                onRequestWatchNextAccess()
+                            } else {
+                                onToggleContinueWatching(!uiState.continueWatchingEnabled)
+                            }
+                        },
+                        trailingText = if (uiState.continueWatchingEnabled) "Wł." else "Wył.",
+                    )
+                    SettingsSpacer()
+                    SettingRow(
+                        "Źródło kontynuacji",
+                        "$watchSourceLabel · tylko aplikacje udostępniające dane",
+                        Icons.Rounded.PlayArrow,
+                        onCycleWatchNextSource,
+                    )
+                }
+                SettingsSection.Dock -> {
+                    SettingRow(
+                        "Szklane tło docka",
+                        "Elementy pozostają zawsze widoczne",
+                        Icons.Rounded.Apps,
+                        onToggleDockBackground,
+                        trailingText = if (uiState.dockBackgroundEnabled) "Wł." else "Wył.",
+                    )
+                    SettingsSpacer()
+                    repeat(2) { slot ->
+                        SettingRow(
+                            "Duży skrót ${slot + 1}",
+                            uiState.featuredApps.getOrNull(slot)?.label ?: "Nie ustawiono",
+                            Icons.Rounded.Apps,
+                            { onPickFeaturedApp(slot) },
+                        )
+                        SettingsSpacer()
+                    }
+                    repeat(3) { slot ->
+                        SettingRow(
+                            "Dolny skrót ${slot + 1}",
+                            uiState.dockShortcuts.getOrNull(slot)?.label ?: "Nie ustawiono",
+                            Icons.Rounded.PlayArrow,
+                            { onPickDockShortcut(slot) },
+                        )
+                        if (slot < 2) SettingsSpacer()
+                    }
+                }
+                SettingsSection.Apps -> {
+                    SettingRow("Ulubione aplikacje", "Wybrane: ${uiState.favorites.size} / 8", Icons.Rounded.Apps, onEditFavorites)
+                    SettingsSpacer()
+                    SettingRow(
+                        "Kolejność wszystkich aplikacji",
+                        "Przytrzymaj aplikację i wybierz przeniesienie wyżej lub niżej",
+                        Icons.Rounded.Apps,
+                        onClick = onOpenAllApps,
+                    )
+                }
+                SettingsSection.System -> {
+                    SettingRow("Eksportuj profil", "Zapisz układ i skróty do pliku JSON", Icons.Rounded.Info, onExportProfile)
+                    SettingsSpacer()
+                    SettingRow("Importuj profil", "Odtwórz układ na drugim telewizorze", Icons.Rounded.Info, onImportProfile)
+                    SettingsSpacer()
+                    SettingRow("Ustawienia systemowe", "Sieć, dźwięk i urządzenie", Icons.Rounded.Settings, onOpenSystemSettings)
+                }
+            }
+        }
     }
 }
+
+@Composable
+private fun SettingsNavigationRow(
+    title: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        focusedScale = 1.015f,
+        shape = RoundedCornerShape(8.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(46.dp),
+    ) { focused ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    when {
+                        focused -> Color(0xD9333942)
+                        selected -> Color(0x8F242A32)
+                        else -> Color.Transparent
+                    },
+                )
+                .padding(horizontal = 14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(20.dp)
+                    .background(if (selected) KtvColors.Accent else Color.Transparent),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(title, color = KtvColors.TextPrimary, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun SettingsSpacer() = Spacer(Modifier.height(9.dp))
 
 @Composable
 private fun SettingRow(
@@ -1314,6 +1499,7 @@ private fun DockShortcutPicker(
 @Composable
 private fun AllAppsScreen(
     apps: List<LaunchableApp>,
+    recentlyAdded: List<LaunchableApp>,
     onLaunchApp: (LaunchableApp) -> Unit,
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
@@ -1338,7 +1524,33 @@ private fun AllAppsScreen(
             fontSize = 27.sp,
             fontWeight = FontWeight.Medium,
         )
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(12.dp))
+
+        if (recentlyAdded.isNotEmpty()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp),
+            ) {
+                Text(
+                    text = "Ostatnio dodane",
+                    color = KtvColors.TextSecondary,
+                    fontSize = 12.sp,
+                    modifier = Modifier.width(108.dp),
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    lazyItems(recentlyAdded, key = LaunchableApp::stableKey) { app ->
+                        RecentlyAddedTile(
+                            app = app,
+                            onClick = { onLaunchApp(app) },
+                            onLongClick = { onLongClickApp(app) },
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
 
         if (apps.isEmpty()) {
             CircularProgressIndicator(color = KtvColors.Accent)
@@ -1363,6 +1575,51 @@ private fun AllAppsScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun RecentlyAddedTile(
+    app: LaunchableApp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    FocusableSurface(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        focusedScale = 1.04f,
+        shape = RoundedCornerShape(10.dp),
+        modifier = Modifier
+            .width(145.dp)
+            .height(54.dp),
+    ) { focused ->
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (focused) Color(0xD82A3038) else Color(0x8F15191F))
+                .border(
+                    1.dp,
+                    if (focused) Color(0x99FFFFFF) else Color(0x24FFFFFF),
+                    RoundedCornerShape(10.dp),
+                )
+                .padding(horizontal = 10.dp),
+        ) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(38.dp),
+            )
+            Spacer(Modifier.width(9.dp))
+            Text(
+                text = app.label,
+                color = KtvColors.TextPrimary,
+                fontSize = 11.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -1428,6 +1685,8 @@ private fun AppContextMenu(
     onToggleFavorite: () -> Unit,
     onMoveLeft: () -> Unit,
     onMoveRight: () -> Unit,
+    onMoveAppUp: () -> Unit,
+    onMoveAppDown: () -> Unit,
     onSetDock: (Int) -> Unit,
     onAppInfo: () -> Unit,
     onUninstall: () -> Unit,
@@ -1468,6 +1727,8 @@ private fun AppContextMenu(
                 ContextMenuRow("Przesuń w lewo", onMoveLeft)
                 ContextMenuRow("Przesuń w prawo", onMoveRight)
             }
+            ContextMenuRow("Przenieś wyżej na liście", onMoveAppUp)
+            ContextMenuRow("Przenieś niżej na liście", onMoveAppDown)
             repeat(3) { slot ->
                 ContextMenuRow("Ustaw jako skrót ${slot + 1}", { onSetDock(slot) })
             }

@@ -9,13 +9,7 @@ import pl.ksawery.ktvlauncher.model.WatchNextItem
 class WatchNextRepository(private val context: Context) {
     suspend fun load(): List<WatchNextItem> = withContext(Dispatchers.IO) {
         val items = mutableListOf<WatchNextItem>()
-        context.contentResolver.query(
-            WATCH_NEXT_URI,
-            null,
-            null,
-            null,
-            null,
-        )?.use { cursor ->
+        context.contentResolver.query(WATCH_NEXT_URI, null, null, null, null)?.use { cursor ->
             while (cursor.moveToNext() && items.size < MAX_ITEMS) {
                 val duration = cursor.longOrNull("duration_millis")
                 val position = cursor.longOrNull("last_playback_position_millis")
@@ -51,6 +45,6 @@ class WatchNextRepository(private val context: Context) {
 
     private companion object {
         val WATCH_NEXT_URI: Uri = Uri.parse("content://android.media.tv/watch_next_program")
-        const val MAX_ITEMS = 4
+        const val MAX_ITEMS = 24
     }
 }

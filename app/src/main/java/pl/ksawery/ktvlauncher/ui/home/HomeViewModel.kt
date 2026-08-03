@@ -14,6 +14,7 @@ import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.ShelfMode
+import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 
 class HomeViewModel(
@@ -27,9 +28,13 @@ class HomeViewModel(
             wallpaperUri = preferences.wallpaperUri(),
             continueWatchingEnabled = preferences.continueWatchingEnabled(),
             shelfMode = preferences.shelfMode(),
+            dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
+            uiScale = preferences.uiScale(),
+            watchNextSourcePackage = preferences.watchNextSourcePackage(),
         ),
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var allWatchNextItems = emptyList<pl.ksawery.ktvlauncher.model.WatchNextItem>()
 
     init {
         refreshApps()
@@ -72,16 +77,8 @@ class HomeViewModel(
         viewModelScope.launch {
             runCatching { watchNextRepository.load() }
                 .onSuccess { items ->
-                    _uiState.update {
-                        it.copy(
-                            watchNext = items,
-                            watchNextStatus = if (items.isEmpty()) {
-                                WatchNextStatus.Empty
-                            } else {
-                                WatchNextStatus.Ready
-                            },
-                        )
-                    }
+                    allWatchNextItems = items
+                    applyWatchNext()
                 }
                 .onFailure {
                     _uiState.update {
@@ -99,6 +96,11 @@ class HomeViewModel(
     fun setWallpaperUri(uri: String) {
         preferences.setWallpaperUri(uri)
         _uiState.update { it.copy(wallpaperUri = uri) }
+    }
+
+    fun resetWallpaper() {
+        preferences.resetWallpaper()
+        _uiState.update { it.copy(wallpaperUri = null) }
     }
 
     fun toggleFavorite(app: LaunchableApp) {
@@ -155,6 +157,57 @@ class HomeViewModel(
         _uiState.update { it.copy(shelfMode = mode) }
     }
 
+    fun toggleDockBackground() {
+        val enabled = !_uiState.value.dockBackgroundEnabled
+        preferences.setDockBackgroundEnabled(enabled)
+        _uiState.update { it.copy(dockBackgroundEnabled = enabled) }
+    }
+
+    fun cycleUiScale() {
+        val values = UiScale.entries
+        val current = values.indexOf(_uiState.value.uiScale)
+        val scale = values[(current + 1) % values.size]
+        preferences.setUiScale(scale)
+        _uiState.update { it.copy(uiScale = scale) }
+    }
+
+    fun cycleWatchNextSource() {
+        val packages = _uiState.value.watchNextSources
+            .map { it.componentName.packageName }
+            .distinct()
+        val options = listOf<String?>(null) + packages
+        val current = options.indexOf(_uiState.value.watchNextSourcePackage).coerceAtLeast(0)
+        val selected = options[(current + 1) % options.size]
+        preferences.setWatchNextSourcePackage(selected)
+        _uiState.update { it.copy(watchNextSourcePackage = selected) }
+        applyWatchNext()
+    }
+
+    fun moveApp(app: LaunchableApp, direction: Int) {
+        val ordered = _uiState.value.apps.toMutableList()
+        val current = ordered.indexOf(app)
+        if (current < 0) return
+        val target = (current + direction).coerceIn(0, ordered.lastIndex)
+        if (target == current) return
+        ordered.add(target, ordered.removeAt(current))
+        preferences.setAppOrderComponents(ordered.map { it.componentName })
+        applyApps(ordered)
+    }
+
+    fun reloadProfile() {
+        _uiState.update {
+            it.copy(
+                shelfMode = preferences.shelfMode(),
+                continueWatchingEnabled = preferences.continueWatchingEnabled(),
+                dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
+                uiScale = preferences.uiScale(),
+                watchNextSourcePackage = preferences.watchNextSourcePackage(),
+            )
+        }
+        applyApps(_uiState.value.apps)
+        refreshWatchNext()
+    }
+
     fun setContinueWatchingEnabled(enabled: Boolean) {
         preferences.setContinueWatchingEnabled(enabled)
         _uiState.update { it.copy(continueWatchingEnabled = enabled) }
@@ -162,11 +215,12 @@ class HomeViewModel(
     }
 
     private fun applyApps(apps: List<LaunchableApp>) {
-        val appsByComponent = apps.associateBy { it.componentName }
+        val orderedApps = orderApps(apps)
+        val appsByComponent = orderedApps.associateBy { it.componentName }
 
         var favoriteComponents = preferences.favoriteComponents()
         if (favoriteComponents.isEmpty()) {
-            favoriteComponents = selectDefaultFavorites(apps).map { it.componentName }
+            favoriteComponents = selectDefaultFavorites(orderedApps).map { it.componentName }
             preferences.setFavoriteComponents(favoriteComponents)
         }
         val favorites = favoriteComponents.mapNotNull(appsByComponent::get).take(MAX_FAVORITES)
@@ -191,14 +245,58 @@ class HomeViewModel(
         _uiState.update {
             it.copy(
                 isLoading = false,
-                apps = apps,
+                apps = orderedApps,
+                recentlyAdded = orderedApps.sortedByDescending { app -> app.firstInstallTime }.take(5),
                 favorites = favorites,
                 dockShortcuts = dockComponents.mapNotNull(appsByComponent::get)
                     .take(MAX_DOCK_SHORTCUTS),
                 featuredApps = featuredComponents.mapNotNull(appsByComponent::get)
                     .take(MAX_FEATURED_APPS),
                 shelfMode = preferences.shelfMode(),
-                recent = selectRecent(apps),
+                recent = selectRecent(orderedApps),
+            )
+        }
+        if (allWatchNextItems.isNotEmpty()) applyWatchNext()
+    }
+
+    private fun orderApps(apps: List<LaunchableApp>): List<LaunchableApp> {
+        val byComponent = apps.associateBy { it.componentName }
+        val saved = preferences.appOrderComponents()
+        if (saved.isEmpty()) {
+            return apps.sortedByDescending { it.firstInstallTime }.also {
+                preferences.setAppOrderComponents(it.map(LaunchableApp::componentName))
+            }
+        }
+        val savedSet = saved.toSet()
+        val newlyInstalled = apps
+            .filterNot { it.componentName in savedSet }
+            .sortedByDescending { it.firstInstallTime }
+        val persisted = saved.mapNotNull(byComponent::get)
+        val remaining = apps.filterNot { app ->
+            app in newlyInstalled || app.componentName in savedSet
+        }
+        return newlyInstalled + persisted + remaining
+    }
+
+    private fun applyWatchNext() {
+        val packages = allWatchNextItems.mapNotNull { it.packageName }.toSet()
+        val sources = _uiState.value.apps
+            .filter { it.componentName.packageName in packages }
+            .distinctBy { it.componentName.packageName }
+        var selected = preferences.watchNextSourcePackage()
+        if (selected != null && selected !in packages) {
+            selected = null
+            preferences.setWatchNextSourcePackage(null)
+        }
+        val visible = allWatchNextItems
+            .filter { selected == null || it.packageName == selected }
+            .take(MAX_WATCH_NEXT_VISIBLE)
+        _uiState.update {
+            it.copy(
+                watchNext = visible,
+                watchNextSources = sources,
+                watchNextSourcePackage = selected,
+                watchNextStatus = if (visible.isEmpty()) WatchNextStatus.Empty else WatchNextStatus.Ready,
             )
         }
     }
@@ -231,6 +329,7 @@ class HomeViewModel(
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
         const val MAX_FEATURED_APPS = 2
+        const val MAX_WATCH_NEXT_VISIBLE = 4
         val FEATURED_LABELS = listOf("Netflix", "Prime Video")
         val FAVORITE_LABELS = listOf(
             "Netflix", "Spotify", "YouTube", "Prime Video",

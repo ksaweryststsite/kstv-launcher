@@ -41,20 +41,20 @@ class AndroidAppRepository(
 
     private fun queryCategory(category: String): List<ResolveInfo> {
         val intent = Intent(Intent.ACTION_MAIN).addCategory(category)
-        return packageManager.queryIntentActivities(
-            intent,
-            0,
-        )
+        return packageManager.queryIntentActivities(intent, 0)
     }
 
+    @Suppress("DEPRECATION")
     private fun toLaunchableApp(info: ResolveInfo): LaunchableApp? = runCatching {
         val activityInfo = info.activityInfo
+        val packageInfo = packageManager.getPackageInfo(activityInfo.packageName, 0)
         LaunchableApp(
             label = info.loadLabel(packageManager).toString().trim().ifEmpty {
                 activityInfo.packageName
             },
             componentName = ComponentName(activityInfo.packageName, activityInfo.name),
             icon = info.loadIcon(packageManager).toImageBitmap(96),
+            firstInstallTime = packageInfo.firstInstallTime,
         )
     }.getOrNull()
 }

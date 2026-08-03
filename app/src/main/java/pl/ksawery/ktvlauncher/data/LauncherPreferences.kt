@@ -2,7 +2,10 @@ package pl.ksawery.ktvlauncher.data
 
 import android.content.ComponentName
 import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
 import pl.ksawery.ktvlauncher.model.ShelfMode
+import pl.ksawery.ktvlauncher.model.UiScale
 
 class LauncherPreferences(context: Context) {
     private val preferences = context.getSharedPreferences(FILE_NAME, Context.MODE_PRIVATE)
@@ -36,6 +39,12 @@ class LauncherPreferences(context: Context) {
         writeComponentList(KEY_FEATURED, components.take(MAX_FEATURED_APPS))
     }
 
+    fun appOrderComponents(): List<ComponentName> = readComponentList(KEY_APP_ORDER)
+
+    fun setAppOrderComponents(components: List<ComponentName>) {
+        writeComponentList(KEY_APP_ORDER, components)
+    }
+
     fun shelfMode(): ShelfMode = runCatching {
         ShelfMode.valueOf(preferences.getString(KEY_SHELF_MODE, null).orEmpty())
     }.getOrDefault(ShelfMode.WatchNext)
@@ -51,10 +60,87 @@ class LauncherPreferences(context: Context) {
         preferences.edit().putBoolean(KEY_CONTINUE_WATCHING, enabled).apply()
     }
 
+    fun watchNextSourcePackage(): String? =
+        preferences.getString(KEY_WATCH_NEXT_SOURCE, null)?.takeIf(String::isNotBlank)
+
+    fun setWatchNextSourcePackage(packageName: String?) {
+        preferences.edit().apply {
+            if (packageName == null) remove(KEY_WATCH_NEXT_SOURCE)
+            else putString(KEY_WATCH_NEXT_SOURCE, packageName)
+        }.apply()
+    }
+
+    fun dockBackgroundEnabled(): Boolean =
+        preferences.getBoolean(KEY_DOCK_BACKGROUND, true)
+
+    fun setDockBackgroundEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_DOCK_BACKGROUND, enabled).apply()
+    }
+
+    fun uiScale(): UiScale = runCatching {
+        UiScale.valueOf(preferences.getString(KEY_UI_SCALE, null).orEmpty())
+    }.getOrDefault(UiScale.Auto)
+
+    fun setUiScale(scale: UiScale) {
+        preferences.edit().putString(KEY_UI_SCALE, scale.name).apply()
+    }
+
     fun wallpaperUri(): String? = preferences.getString(KEY_WALLPAPER_URI, null)
 
     fun setWallpaperUri(uri: String) {
         preferences.edit().putString(KEY_WALLPAPER_URI, uri).apply()
+    }
+
+    fun resetWallpaper() {
+        preferences.edit().remove(KEY_WALLPAPER_URI).apply()
+    }
+
+    fun exportProfile(): String = JSONObject().apply {
+        put("version", PROFILE_VERSION)
+        put("favorites", componentArray(favoriteComponents()))
+        put("dock", componentArray(dockComponents()))
+        put("featured", componentArray(featuredComponents()))
+        put("appOrder", componentArray(appOrderComponents()))
+        put("shelfMode", shelfMode().name)
+        put("continueWatching", continueWatchingEnabled())
+        put("watchNextSource", watchNextSourcePackage())
+        put("dockBackground", dockBackgroundEnabled())
+        put("uiScale", uiScale().name)
+    }.toString(2)
+
+    fun importProfile(json: String): Boolean = runCatching {
+        val profile = JSONObject(json)
+        setFavoriteComponents(profile.componentList("favorites"))
+        setDockComponents(profile.componentList("dock"))
+        setFeaturedComponents(profile.componentList("featured"))
+        setAppOrderComponents(profile.componentList("appOrder"))
+        profile.optString("shelfMode").takeIf(String::isNotBlank)?.let {
+            setShelfMode(ShelfMode.valueOf(it))
+        }
+        if (profile.has("continueWatching")) {
+            setContinueWatchingEnabled(profile.optBoolean("continueWatching", true))
+        }
+        setWatchNextSourcePackage(profile.optString("watchNextSource").takeIf(String::isNotBlank))
+        if (profile.has("dockBackground")) {
+            setDockBackgroundEnabled(profile.optBoolean("dockBackground", true))
+        }
+        profile.optString("uiScale").takeIf(String::isNotBlank)?.let {
+            setUiScale(UiScale.valueOf(it))
+        }
+        true
+    }.getOrDefault(false)
+
+    private fun componentArray(components: List<ComponentName>) = JSONArray().apply {
+        components.forEach { put(it.flattenToShortString()) }
+    }
+
+    private fun JSONObject.componentList(key: String): List<ComponentName> {
+        val values = optJSONArray(key) ?: return emptyList()
+        return buildList {
+            for (index in 0 until values.length()) {
+                ComponentName.unflattenFromString(values.optString(index))?.let(::add)
+            }
+        }
     }
 
     private fun readComponentList(key: String): List<ComponentName> = preferences
@@ -75,9 +161,14 @@ class LauncherPreferences(context: Context) {
         const val KEY_FAVORITES = "favorite_components"
         const val KEY_DOCK = "dock_components"
         const val KEY_FEATURED = "featured_components"
+        const val KEY_APP_ORDER = "app_order_components"
         const val KEY_SHELF_MODE = "shelf_mode"
         const val KEY_CONTINUE_WATCHING = "continue_watching_enabled"
+        const val KEY_WATCH_NEXT_SOURCE = "watch_next_source_package"
+        const val KEY_DOCK_BACKGROUND = "dock_background_enabled"
+        const val KEY_UI_SCALE = "ui_scale"
         const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2d"
+        const val PROFILE_VERSION = 1
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3

@@ -7,7 +7,7 @@ data class LaunchableApp(
     val label: String,
     val componentName: ComponentName,
     val icon: ImageBitmap,
+    val firstInstallTime: Long = 0L,
 ) {
     val stableKey: String = componentName.flattenToShortString()
 }
-
