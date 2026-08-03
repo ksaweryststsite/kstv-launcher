@@ -12,14 +12,26 @@ android {
         applicationId = "pl.ksawery.ktvlauncher"
         minSdk = 30
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.6.3-final"
+        versionCode = 11
+        versionName = "0.6.4-final"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
 
+    signingConfigs {
+        create("development") {
+            storeFile = rootProject.file("keystore/kstv-development.keystore")
+            storePassword = "kstv-development"
+            keyAlias = "kstv-development"
+            keyPassword = "kstv-development"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("development")
+        }
         release {
             isMinifyEnabled = true
             proguardFiles(

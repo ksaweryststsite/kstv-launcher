@@ -1,10 +1,14 @@
 package pl.ksawery.ktvlauncher
 
+import android.content.ContentValues
 import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -55,31 +59,6 @@ class MainActivity : ComponentActivity() {
                     homeViewModel.setWallpaperUri(it.toString())
                 }
             }
-            val profileExporter = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.CreateDocument("application/json"),
-            ) { uri ->
-                uri?.let {
-                    runCatching {
-                        contentResolver.openOutputStream(it)?.bufferedWriter()?.use { writer ->
-                            writer.write(preferences.exportProfile())
-                        }
-                    }
-                }
-            }
-            val profileImporter = rememberLauncherForActivityResult(
-                contract = ActivityResultContracts.OpenDocument(),
-            ) { uri ->
-                uri?.let {
-                    val profile = runCatching {
-                        contentResolver.openInputStream(it)?.bufferedReader()?.use { reader ->
-                            reader.readText()
-                        }
-                    }.getOrNull()
-                    if (profile != null && preferences.importProfile(profile)) {
-                        homeViewModel.reloadProfile()
-                    }
-                }
-            }
             val tvListingsPermission = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission(),
             ) {
@@ -93,9 +72,23 @@ class MainActivity : ComponentActivity() {
                         appLauncher.launch(app)
                     },
                     onPickWallpaper = { wallpaperPicker.launch(arrayOf("image/*")) },
-                    onExportProfile = { profileExporter.launch("kstv-launcher-profile.json") },
+                    onExportProfile = {
+                        val exported = exportProfile(preferences.exportProfile())
+                        Toast.makeText(
+                            this,
+                            if (exported) "Profil zapisany w Pobrane/KSTV" else "Nie udało się zapisać profilu",
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    },
                     onImportProfile = {
-                        profileImporter.launch(arrayOf("application/json", "text/plain"))
+                        val profile = importLatestProfile()
+                        val imported = profile != null && preferences.importProfile(profile)
+                        if (imported) homeViewModel.reloadProfile()
+                        Toast.makeText(
+                            this,
+                            if (imported) "Profil został wczytany" else "Nie znaleziono profilu w Pobrane/KSTV",
+                            Toast.LENGTH_LONG,
+                        ).show()
                     },
                     onOpenSettings = { openSystemSettings(Settings.ACTION_SETTINGS) },
                     onOpenWifi = { openSystemSettings(Settings.ACTION_WIFI_SETTINGS) },
@@ -148,6 +141,57 @@ class MainActivity : ComponentActivity() {
         options.outWidth >= 640 && options.outHeight >= 360
     }.getOrDefault(false)
 
+    private fun exportProfile(profile: String): Boolean {
+        val values = ContentValues().apply {
+            put(
+                MediaStore.MediaColumns.DISPLAY_NAME,
+                "$PROFILE_PREFIX${System.currentTimeMillis()}.json",
+            )
+            put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+            put(
+                MediaStore.MediaColumns.RELATIVE_PATH,
+                "${Environment.DIRECTORY_DOWNLOADS}/KSTV",
+            )
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: return false
+        return runCatching {
+            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { writer ->
+                writer.write(profile)
+            } ?: error("No output stream")
+            values.clear()
+            values.put(MediaStore.MediaColumns.IS_PENDING, 0)
+            contentResolver.update(uri, values, null, null)
+            true
+        }.getOrElse {
+            contentResolver.delete(uri, null, null)
+            false
+        }
+    }
+
+    private fun importLatestProfile(): String? = runCatching {
+        val projection = arrayOf(MediaStore.MediaColumns._ID)
+        val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf("$PROFILE_PREFIX%")
+        val sortOrder = "${MediaStore.MediaColumns.DATE_MODIFIED} DESC"
+        contentResolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            projection,
+            selection,
+            selectionArgs,
+            sortOrder,
+        )?.use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val id = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
+            val uri = Uri.withAppendedPath(
+                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                id.toString(),
+            )
+            contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+        }
+    }.getOrNull()
+
     private fun configureFullscreen() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
@@ -165,5 +209,6 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val ACTION_NOTIFICATION_SETTINGS = "android.settings.NOTIFICATION_SETTINGS"
         const val READ_TV_LISTINGS_PERMISSION = "android.permission.READ_TV_LISTINGS"
+        const val PROFILE_PREFIX = "kstv-launcher-profile-"
     }
 }

@@ -461,22 +461,22 @@ private fun UnifiedDock(
                     Modifier
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0x72262B32), Color(0x9C0B0F15)),
+                                listOf(Color(0x4A20252B), Color(0x6E080C12)),
                             ),
                         )
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(Color(0x1CFFFFFF), Color.Transparent),
+                                colors = listOf(Color(0x10FFFFFF), Color.Transparent),
                                 center = Offset(920f, -90f),
                                 radius = 820f,
                             ),
                         )
-                        .border(1.dp, Color(0x52FFFFFF), RoundedCornerShape(18.dp))
+                        .border(1.dp, Color(0x38FFFFFF), RoundedCornerShape(18.dp))
                 } else {
                     Modifier
                 },
             )
-            .padding(start = 14.dp, top = 4.dp, end = 14.dp, bottom = 10.dp),
+            .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
     ) {
         ContentShelf(
             shelfMode = uiState.shelfMode,
@@ -490,7 +490,7 @@ private fun UnifiedDock(
             onRequestWatchNextAccess = onRequestWatchNextAccess,
             onLongClickApp = onLongClickApp,
         )
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Dock(
             shortcuts = uiState.dockShortcuts,
             onOpenSettings = onOpenSettings,
@@ -680,7 +680,7 @@ private fun ContentShelf(
         verticalAlignment = Alignment.Top,
         modifier = modifier
             .fillMaxWidth()
-            .height(106.dp),
+            .height(102.dp),
     ) {
         if (shelfMode != ShelfMode.Hidden) {
             Column(modifier = Modifier.width(350.dp)) {
@@ -693,9 +693,14 @@ private fun ContentShelf(
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(
+                        10.dp,
+                        Alignment.CenterHorizontally,
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.height(82.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(74.dp),
                 ) {
                     when (shelfMode) {
                         ShelfMode.WatchNext -> {
@@ -759,7 +764,7 @@ private fun ContentShelf(
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.height(82.dp),
+                modifier = Modifier.height(74.dp),
             ) {
                 favorites.take(8).forEachIndexed { index, app ->
                     FavoriteTile(
@@ -842,7 +847,7 @@ private fun FeaturedAppCard(
 private fun SectionTitle(text: String) {
     Box(
         contentAlignment = Alignment.CenterStart,
-        modifier = Modifier.height(16.dp),
+        modifier = Modifier.height(20.dp),
     ) {
         Text(
             text = text,

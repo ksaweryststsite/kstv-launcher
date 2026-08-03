@@ -21,14 +21,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
-      - name: Restore development signing key
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: kstv-development-signing-v1
       - name: Test and build debug APK
         run: gradle --no-daemon testDebugUnitTest assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: kstv-launcher-final-0.6.3
+          name: kstv-launcher-final-0.6.4
           path: app/build/outputs/apk/debug/app-debug.apk
