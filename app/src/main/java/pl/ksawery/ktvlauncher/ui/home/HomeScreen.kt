@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.nativeKeyEvent
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
@@ -198,6 +199,7 @@ fun HomeScreen(
     var contextApp by remember { mutableStateOf<LaunchableApp?>(null) }
     var dockPickerSlot by rememberSaveable { mutableStateOf(0) }
     var featuredPickerSlot by rememberSaveable { mutableStateOf(0) }
+    var settingsSection by rememberSaveable { mutableStateOf(SettingsSection.Appearance) }
     val baseDensity = LocalDensity.current
 
     CompositionLocalProvider(
@@ -246,6 +248,8 @@ fun HomeScreen(
 
             LauncherScreen.Settings -> LauncherSettingsScreen(
                 uiState = uiState,
+                section = settingsSection,
+                onSectionChange = { settingsSection = it },
                 onPickWallpaper = onPickWallpaper,
                 onResetWallpaper = onResetWallpaper,
                 onExportProfile = onExportProfile,
@@ -447,17 +451,17 @@ private fun UnifiedDock(
                     Modifier
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color(0x8F262B33), Color(0xD90A0E14)),
+                                listOf(Color(0x72262B32), Color(0x9C0B0F15)),
                             ),
                         )
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(Color(0x42E2A25C), Color.Transparent),
+                                colors = listOf(Color(0x1CFFFFFF), Color.Transparent),
                                 center = Offset(920f, -90f),
-                                radius = 760f,
+                                radius = 820f,
                             ),
                         )
-                        .border(1.dp, Color(0x4AFFFFFF), RoundedCornerShape(18.dp))
+                        .border(1.dp, Color(0x52FFFFFF), RoundedCornerShape(18.dp))
                 } else {
                     Modifier
                 },
@@ -1090,6 +1094,8 @@ private fun DockShortcut(
 @Composable
 private fun LauncherSettingsScreen(
     uiState: HomeUiState,
+    section: SettingsSection,
+    onSectionChange: (SettingsSection) -> Unit,
     onPickWallpaper: () -> Unit,
     onResetWallpaper: () -> Unit,
     onExportProfile: () -> Unit,
@@ -1108,7 +1114,6 @@ private fun LauncherSettingsScreen(
 ) {
     val firstFocusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
-    var section by rememberSaveable { mutableStateOf(SettingsSection.Appearance) }
     val watchNextLabel = when (uiState.watchNextStatus) {
         WatchNextStatus.Loading -> "Sprawdzanie danych…"
         WatchNextStatus.Ready -> "Dostępne materiały: ${uiState.watchNext.size}"
@@ -1151,7 +1156,7 @@ private fun LauncherSettingsScreen(
                         SettingsSection.System -> "System"
                     },
                     selected = section == item,
-                    onClick = { section = item },
+                    onClick = { onSectionChange(item) },
                     modifier = if (index == 0) {
                         Modifier.focusRequester(firstFocusRequester)
                     } else Modifier,
@@ -1833,6 +1838,7 @@ private fun FocusableSurface(
     var focused by remember { mutableStateOf(false) }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     var longPressTriggered by remember { mutableStateOf(false) }
+    var keyDownStartedHere by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val scale by animateFloatAsState(
         targetValue = if (focused) focusedScale else 1f,
@@ -1866,17 +1872,23 @@ private fun FocusableSurface(
 
                 when (event.type) {
                     KeyEventType.KeyDown -> {
-                        if (longPressJob == null && onLongClick != null) {
-                            longPressTriggered = false
-                            longPressJob = scope.launch {
-                                delay(LONG_PRESS_MILLIS)
-                                longPressTriggered = true
-                                onLongClick()
+                        if (event.nativeKeyEvent.repeatCount == 0) {
+                            keyDownStartedHere = true
+                            if (longPressJob == null && onLongClick != null) {
+                                longPressTriggered = false
+                                longPressJob = scope.launch {
+                                    delay(LONG_PRESS_MILLIS)
+                                    longPressJob = null
+                                    longPressTriggered = true
+                                    onLongClick()
+                                }
                             }
                         }
                         true
                     }
                     KeyEventType.KeyUp -> {
+                        if (!keyDownStartedHere) return@onKeyEvent true
+                        keyDownStartedHere = false
                         longPressJob?.cancel()
                         longPressJob = null
                         if (!longPressTriggered) {
