@@ -13,6 +13,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -29,6 +32,7 @@ import pl.ksawery.ktvlauncher.ui.theme.KtvLauncherTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var homeViewModel: HomeViewModel
+    private var homeRequest by mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +71,7 @@ class MainActivity : ComponentActivity() {
             KtvLauncherTheme {
                 HomeRoute(
                     viewModel = homeViewModel,
+                    homeRequest = homeRequest,
                     onLaunchApp = { app ->
                         homeViewModel.recordLaunch(app)
                         appLauncher.launch(app)
@@ -122,6 +127,12 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        homeRequest++
     }
 
     override fun onResume() {
