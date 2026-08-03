@@ -125,6 +125,7 @@ private enum class SettingsSection {
 @Composable
 fun HomeRoute(
     viewModel: HomeViewModel,
+    homeRequest: Int = 0,
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
     onExportProfile: () -> Unit,
@@ -140,6 +141,7 @@ fun HomeRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     HomeScreen(
         uiState = uiState,
+        homeRequest = homeRequest,
         onLaunchApp = onLaunchApp,
         onPickWallpaper = onPickWallpaper,
         onExportProfile = onExportProfile,
@@ -171,6 +173,7 @@ fun HomeRoute(
 @Composable
 fun HomeScreen(
     uiState: HomeUiState,
+    homeRequest: Int,
     onLaunchApp: (LaunchableApp) -> Unit,
     onPickWallpaper: () -> Unit,
     onExportProfile: () -> Unit,
@@ -202,6 +205,13 @@ fun HomeScreen(
     var settingsSection by rememberSaveable { mutableStateOf(SettingsSection.Appearance) }
     var showResetWallpaperConfirmation by rememberSaveable { mutableStateOf(false) }
     val baseDensity = LocalDensity.current
+
+    LaunchedEffect(homeRequest) {
+        screen = LauncherScreen.Home
+        showInfo = false
+        contextApp = null
+        showResetWallpaperConfirmation = false
+    }
 
     CompositionLocalProvider(
         LocalDensity provides Density(
@@ -683,7 +693,7 @@ private fun ContentShelf(
             .height(102.dp),
     ) {
         if (shelfMode != ShelfMode.Hidden) {
-            Column(modifier = Modifier.width(350.dp)) {
+            Column(modifier = Modifier.width(326.dp)) {
                 SectionTitle(
                     if (shelfMode == ShelfMode.WatchNext) {
                         "Kontynuuj oglądanie"
@@ -691,7 +701,7 @@ private fun ContentShelf(
                         "Najważniejsze aplikacje"
                     },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(6.dp))
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(
                         10.dp,
@@ -700,7 +710,7 @@ private fun ContentShelf(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(74.dp),
+                        .height(76.dp),
                 ) {
                     when (shelfMode) {
                         ShelfMode.WatchNext -> {
@@ -748,23 +758,16 @@ private fun ContentShelf(
                 }
             }
 
-            Spacer(Modifier.width(18.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .width(1.dp)
-                    .background(Color(0x26FFFFFF)),
-            )
-            Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(24.dp))
         }
 
         Column(modifier = Modifier.weight(1f)) {
             SectionTitle("Ulubione aplikacje")
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.height(74.dp),
+                modifier = Modifier.height(76.dp),
             ) {
                 favorites.take(8).forEachIndexed { index, app ->
                     FavoriteTile(
@@ -803,10 +806,10 @@ private fun FeaturedAppCard(
         onClick = onClick,
         onLongClick = onLongClick,
         focusedScale = 1.035f,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(9.dp),
         modifier = modifier
-            .width(158.dp)
-            .height(74.dp),
+            .width(148.dp)
+            .height(64.dp),
     ) { focused ->
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -821,21 +824,21 @@ private fun FeaturedAppCard(
                         },
                     ),
                 )
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 13.dp),
         ) {
             Image(
                 bitmap = app.icon,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp)),
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(9.dp)),
             )
-            Spacer(Modifier.width(13.dp))
+            Spacer(Modifier.width(10.dp))
             Text(
                 text = app.label,
                 color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -870,10 +873,10 @@ private fun WatchNextCard(
     FocusableSurface(
         onClick = onClick,
         focusedScale = 1.035f,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(9.dp),
         modifier = modifier
-            .width(158.dp)
-            .height(74.dp),
+            .width(148.dp)
+            .height(64.dp),
     ) { focused ->
         Box(
             modifier = Modifier
@@ -898,15 +901,22 @@ private fun WatchNextCard(
                 )
             }
 
-            Icon(
-                imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = null,
-                tint = KtvColors.TextPrimary,
+            Box(
+                contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 11.dp)
-                    .size(21.dp),
-            )
+                    .padding(end = 9.dp)
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0x70080A0E)),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    tint = KtvColors.TextPrimary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
 
             item.progressPercent?.let { progress ->
                 Box(
@@ -956,10 +966,10 @@ private fun WatchNextEmptyCard(
     FocusableSurface(
         onClick = onClick,
         focusedScale = 1.035f,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(9.dp),
         modifier = modifier
-            .width(158.dp)
-            .height(74.dp),
+            .width(148.dp)
+            .height(64.dp),
     ) { focused ->
         Box(
             contentAlignment = Alignment.Center,
