@@ -326,11 +326,13 @@ private fun HomeDashboard(
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
                 .height(maxHeight * 0.43f)
-                .background(Color(0x8F090C11))
-                .border(
-                    width = 1.dp,
-                    color = Color(0x22FFFFFF),
-                    shape = RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp),
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.22f to Color(0x260C1016),
+                        0.58f to Color(0x7A0A0E14),
+                        1f to Color(0xD9080A0E),
+                    ),
                 ),
         )
 
@@ -622,8 +624,8 @@ private fun WatchNextCard(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xE51A1E25), Color(0xB30D1015)),
+                    Brush.verticalGradient(
+                        listOf(Color(0x8A1A1F27), Color(0xC90A0D12)),
                     ),
                 ),
         ) {
@@ -632,16 +634,10 @@ private fun WatchNextCard(
                     bitmap = poster,
                     contentDescription = item.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0xD9090B0F)),
-                            ),
-                        ),
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(60.dp),
                 )
             } else if (appIcon != null) {
                 Image(
@@ -649,47 +645,52 @@ private fun WatchNextCard(
                     contentDescription = item.title,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .padding(start = 14.dp, bottom = 18.dp)
+                        .align(Alignment.TopStart)
+                        .padding(start = 12.dp, top = 9.dp)
                         .size(42.dp),
                 )
             }
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(Color(0xB3090B0F))
-                    .padding(horizontal = 9.dp, vertical = 5.dp),
-            ) {
-                Text(
-                    text = item.title,
-                    color = KtvColors.TextPrimary,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = item.description ?: if (focused) "Otwórz" else "Kontynuuj",
-                    color = KtvColors.TextSecondary,
-                    fontSize = 8.sp,
-                )
-            }
+
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
                 contentDescription = null,
                 tint = KtvColors.TextPrimary,
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 14.dp, bottom = 18.dp)
+                    .align(Alignment.TopEnd)
+                    .padding(top = 19.dp, end = 11.dp)
                     .size(22.dp),
             )
+
+            Column(
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .height(22.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xC9141820), Color(0xEB090C11)),
+                        ),
+                    )
+                    .padding(horizontal = 8.dp),
+            ) {
+                Text(
+                    text = item.title,
+                    color = if (focused) KtvColors.TextPrimary else KtvColors.TextSecondary,
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
             item.progressPercent?.let { progress ->
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
+                        .padding(bottom = 21.dp)
                         .fillMaxWidth(progress)
                         .height(2.dp)
-                        .background(KtvColors.TextPrimary),
+                        .background(Color(0xFFECEFF3)),
                 )
             }
         }
@@ -820,7 +821,20 @@ private fun DockAction(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (focused) Color(0xD9272C34) else Color(0xA8171A20))
+                .background(
+                    Brush.verticalGradient(
+                        if (focused) {
+                            listOf(Color(0x80515A68), Color(0xA61A2029))
+                        } else {
+                            listOf(Color(0x3D343C48), Color(0x6810151C))
+                        },
+                    ),
+                )
+                .border(
+                    1.dp,
+                    if (focused) Color(0x8AFFFFFF) else Color(0x24FFFFFF),
+                    RoundedCornerShape(9.dp),
+                )
                 .padding(horizontal = 12.dp),
         ) {
             Icon(
@@ -856,7 +870,20 @@ private fun DockShortcut(
             contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (focused) Color(0xD9272C34) else Color(0xA8171A20))
+                .background(
+                    Brush.verticalGradient(
+                        if (focused) {
+                            listOf(Color(0x80515A68), Color(0xA61A2029))
+                        } else {
+                            listOf(Color(0x3D343C48), Color(0x6810151C))
+                        },
+                    ),
+                )
+                .border(
+                    1.dp,
+                    if (focused) Color(0x8AFFFFFF) else Color(0x24FFFFFF),
+                    RoundedCornerShape(9.dp),
+                )
                 .padding(horizontal = 12.dp),
         ) {
             Text(
@@ -1153,7 +1180,11 @@ private fun AllAppsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xC9080A0E))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0xD20B0F15), Color(0xF207090D)),
+                ),
+            )
             .padding(horizontal = 54.dp, vertical = 30.dp),
     ) {
         Text(
@@ -1216,7 +1247,20 @@ private fun AllAppsTile(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(if (focused) Color(0xE5292E37) else Color(0xC21A1E25))
+                    .background(
+                        Brush.verticalGradient(
+                            if (focused) {
+                                listOf(Color(0xA84A5361), Color(0xC51B212A))
+                            } else {
+                                listOf(Color(0x4D343C48), Color(0x7A11161D))
+                            },
+                        ),
+                    )
+                    .border(
+                        1.dp,
+                        if (focused) Color(0x8AFFFFFF) else Color(0x18FFFFFF),
+                        RoundedCornerShape(14.dp),
+                    )
                     .padding(8.dp),
             ) {
                 Image(
@@ -1399,7 +1443,7 @@ private fun FocusableSurface(
             }
             .border(
                 width = 1.dp,
-                color = if (focused) Color(0x99FFFFFF) else Color(0x24FFFFFF),
+                color = if (focused) Color(0x99FFFFFF) else Color.Transparent,
                 shape = shape,
             )
             .onFocusChanged { focused = it.isFocused }
