@@ -68,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
+import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
@@ -331,37 +332,73 @@ private fun ThemeTwoShelf(
     onRequestWatchNextAccess: () -> Unit,
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
+    val hasLeftShelf = uiState.shelfMode != ShelfMode.Hidden
+
     Row(verticalAlignment = if (isThemeThree) Alignment.Top else Alignment.Bottom) {
-        Column {
-            ThemeTwoSectionTitle("Kontynuuj oglądanie")
-            Spacer(Modifier.height(11.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (uiState.watchNext.isEmpty()) {
-                    ThemeTwoWatchNextEmpty(uiState.watchNextStatus, onRequestWatchNextAccess, isThemeThree)
-                } else {
-                    uiState.watchNext.take(2).forEach { item ->
-                        ThemeTwoWatchNextCard(
-                            item = item,
-                            appIcon = uiState.apps.firstOrNull {
-                                it.componentName.packageName == item.packageName
-                            }?.icon,
-                            onClick = { onLaunchWatchNext(item) },
-                            isThemeThree = isThemeThree,
-                        )
+        if (hasLeftShelf) {
+            Column {
+                ThemeTwoSectionTitle(
+                    if (uiState.shelfMode == ShelfMode.WatchNext) {
+                        "Kontynuuj oglądanie"
+                    } else {
+                        "Najważniejsze aplikacje"
+                    },
+                )
+                Spacer(Modifier.height(11.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    when (uiState.shelfMode) {
+                        ShelfMode.WatchNext -> {
+                            if (uiState.watchNext.isEmpty()) {
+                                ThemeTwoWatchNextEmpty(
+                                    uiState.watchNextStatus,
+                                    onRequestWatchNextAccess,
+                                    isThemeThree,
+                                )
+                            } else {
+                                uiState.watchNext.take(2).forEach { item ->
+                                    ThemeTwoWatchNextCard(
+                                        item = item,
+                                        appIcon = uiState.apps.firstOrNull {
+                                            it.componentName.packageName == item.packageName
+                                        }?.icon,
+                                        onClick = { onLaunchWatchNext(item) },
+                                        isThemeThree = isThemeThree,
+                                    )
+                                }
+                            }
+                        }
+
+                        ShelfMode.AppShortcuts -> {
+                            uiState.featuredApps.take(2).forEach { app ->
+                                ThemeTwoFeaturedAppCard(
+                                    app = app,
+                                    onClick = { onLaunchApp(app) },
+                                    onLongClick = { onLongClickApp(app) },
+                                    isThemeThree = isThemeThree,
+                                )
+                            }
+                        }
+
+                        ShelfMode.Hidden -> Unit
                     }
                 }
             }
+
+            Spacer(Modifier.width(24.dp))
+            Box(
+                modifier = Modifier
+                    .offset(y = if (isThemeThree) 4.dp else 0.dp)
+                    .width(1.dp)
+                    .height(if (isThemeThree) 102.dp else 106.dp)
+                    .background(Color(0x22FFFFFF)),
+            )
+            Spacer(Modifier.width(18.dp))
         }
-        Spacer(Modifier.width(24.dp))
-        Box(
-            modifier = Modifier
-                .width(1.dp)
-                .height(106.dp)
-                .background(Color(0x22FFFFFF)),
-        )
-        Spacer(Modifier.width(18.dp))
+
         Column(
-            modifier = Modifier.offset(y = if (isThemeThree) 16.dp else 0.dp),
+            modifier = Modifier.offset(
+                y = if (isThemeThree && hasLeftShelf) 16.dp else 0.dp,
+            ),
         ) {
             ThemeTwoSectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(11.dp))
@@ -382,6 +419,48 @@ private fun ThemeTwoShelf(
 @Composable
 private fun ThemeTwoSectionTitle(value: String) {
     Text(value, color = KtvColors.TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Normal)
+}
+
+@Composable
+private fun ThemeTwoFeaturedAppCard(
+    app: LaunchableApp,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    isThemeThree: Boolean,
+) {
+    ThemeTwoFocusable(
+        onClick = onClick,
+        onLongClick = onLongClick,
+        shape = RoundedCornerShape(17.dp),
+        modifier = Modifier
+            .width(if (isThemeThree) 154.dp else 150.dp)
+            .height(if (isThemeThree) 82.dp else 80.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xB8111620))
+                .padding(horizontal = 14.dp),
+        ) {
+            Image(
+                bitmap = app.icon,
+                contentDescription = app.label,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(11.dp)),
+            )
+            Spacer(Modifier.width(11.dp))
+            Text(
+                text = app.label,
+                color = KtvColors.TextPrimary,
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable
