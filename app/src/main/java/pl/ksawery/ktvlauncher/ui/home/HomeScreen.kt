@@ -628,6 +628,7 @@ private fun ThemeThreeBackground() {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
+                    // `height` respects parent constraints and would leave the shifted image uncovered.
                     .requiredHeight(maxHeight + 40.dp)
                     .offset(y = (-40).dp),
             )
