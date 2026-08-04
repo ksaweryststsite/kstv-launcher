@@ -31,14 +31,15 @@ class HomeViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
         HomeUiState(
-            wallpaperUri = preferences.wallpaperUri(),
+            launcherTheme = preferences.launcherTheme(),
+            wallpaperUri = preferences.wallpaperUri(preferences.launcherTheme()),
             continueWatchingEnabled = preferences.continueWatchingEnabled(),
             shelfMode = preferences.shelfMode(),
             dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
             uiScale = preferences.uiScale(),
-            launcherTheme = preferences.launcherTheme(),
             themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
             themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+            themeThreeName = preferences.themeName(LauncherThemeMode.Theme3),
             mediaWidgetEnabled = preferences.mediaWidgetEnabled(),
             watchNextSourcePackage = preferences.watchNextSourcePackage(),
         ),
@@ -106,12 +107,14 @@ class HomeViewModel(
     }
 
     fun setWallpaperUri(uri: String) {
-        preferences.setWallpaperUri(uri)
+        val theme = _uiState.value.launcherTheme
+        preferences.setWallpaperUri(theme, uri)
         _uiState.update { it.copy(wallpaperUri = uri) }
     }
 
     fun resetWallpaper() {
-        preferences.resetWallpaper()
+        val theme = _uiState.value.launcherTheme
+        preferences.resetWallpaper(theme)
         _uiState.update { it.copy(wallpaperUri = null) }
     }
 
@@ -188,16 +191,23 @@ class HomeViewModel(
         val current = values.indexOf(_uiState.value.launcherTheme)
         val theme = values[(current + 1) % values.size]
         preferences.setLauncherTheme(theme)
-        _uiState.update { it.copy(launcherTheme = theme) }
+        _uiState.update {
+            it.copy(
+                launcherTheme = theme,
+                wallpaperUri = preferences.wallpaperUri(theme),
+            )
+        }
     }
 
-    fun setThemeNames(themeOneName: String, themeTwoName: String) {
+    fun setThemeNames(themeOneName: String, themeTwoName: String, themeThreeName: String) {
         preferences.setThemeName(LauncherThemeMode.Theme1, themeOneName)
         preferences.setThemeName(LauncherThemeMode.Theme2, themeTwoName)
+        preferences.setThemeName(LauncherThemeMode.Theme3, themeThreeName)
         _uiState.update {
             it.copy(
                 themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
                 themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+                themeThreeName = preferences.themeName(LauncherThemeMode.Theme3),
             )
         }
     }
@@ -274,8 +284,10 @@ class HomeViewModel(
                 dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
                 uiScale = preferences.uiScale(),
                 launcherTheme = preferences.launcherTheme(),
+                wallpaperUri = preferences.wallpaperUri(preferences.launcherTheme()),
                 themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
                 themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+                themeThreeName = preferences.themeName(LauncherThemeMode.Theme3),
                 mediaWidgetEnabled = preferences.mediaWidgetEnabled(),
                 mediaPlayback = null,
                 watchNextSourcePackage = preferences.watchNextSourcePackage(),
