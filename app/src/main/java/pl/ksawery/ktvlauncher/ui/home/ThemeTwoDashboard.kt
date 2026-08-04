@@ -1,5 +1,7 @@
 package pl.ksawery.ktvlauncher.ui.home
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -32,7 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,9 +51,17 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
@@ -272,6 +284,7 @@ private fun ThemeTwoWatchNextCard(
     appIcon: ImageBitmap?,
     onClick: () -> Unit,
 ) {
+    val poster = themeTwoUriImage(item.posterUri)
     ThemeTwoFocusable(
         onClick = onClick,
         shape = RoundedCornerShape(10.dp),
@@ -284,8 +297,14 @@ private fun ThemeTwoWatchNextCard(
                 .fillMaxSize()
                 .background(Color(0xB8111620)),
         ) {
-            if (appIcon != null) {
-                Image(
+            when {
+                poster != null -> Image(
+                    bitmap = poster,
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                appIcon != null -> Image(
                     bitmap = appIcon,
                     contentDescription = item.title,
                     contentScale = ContentScale.Fit,
@@ -419,6 +438,9 @@ private fun ThemeTwoFocusable(
 ) {
     var focused by remember { mutableStateOf(false) }
     var keyDown by remember { mutableStateOf(false) }
+    var longPressTriggered by remember { mutableStateOf(false) }
+    var longPressJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
     val scale by animateFloatAsState(
         targetValue = if (focused) 1.045f else 1f,
         animationSpec = tween(120),
@@ -451,11 +473,23 @@ private fun ThemeTwoFocusable(
                 when (event.type) {
                     KeyEventType.KeyDown -> {
                         keyDown = true
+                        if (longPressJob == null && onLongClick != null) {
+                            longPressTriggered = false
+                            longPressJob = scope.launch {
+                                delay(550)
+                                longPressJob = null
+                                longPressTriggered = true
+                                onLongClick()
+                            }
+                        }
                         true
                     }
                     KeyEventType.KeyUp -> {
-                        if (keyDown) onClick()
+                        if (keyDown && !longPressTriggered) onClick()
                         keyDown = false
+                        longPressJob?.cancel()
+                        longPressJob = null
+                        longPressTriggered = false
                         true
                     }
                     else -> false
@@ -465,4 +499,24 @@ private fun ThemeTwoFocusable(
     ) {
         content(focused)
     }
+}
+
+@Composable
+private fun themeTwoUriImage(uri: String?): ImageBitmap? {
+    val context = LocalContext.current
+    val image by produceState<ImageBitmap?>(initialValue = null, key1 = uri) {
+        value = uri?.let { value ->
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val parsed = Uri.parse(value)
+                    val stream = when (parsed.scheme) {
+                        "http", "https" -> URL(value).openStream()
+                        else -> context.contentResolver.openInputStream(parsed)
+                    }
+                    stream?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+                }.getOrNull()
+            }
+        }
+    }
+    return image
 }
