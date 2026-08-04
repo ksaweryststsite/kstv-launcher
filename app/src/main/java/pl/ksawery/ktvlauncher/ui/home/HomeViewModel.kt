@@ -187,6 +187,17 @@ class HomeViewModel(
         _uiState.update { it.copy(launcherTheme = theme) }
     }
 
+    fun setThemeNames(themeOneName: String, themeTwoName: String) {
+        preferences.setThemeName(LauncherThemeMode.Theme1, themeOneName)
+        preferences.setThemeName(LauncherThemeMode.Theme2, themeTwoName)
+        _uiState.update {
+            it.copy(
+                themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
+                themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+            )
+        }
+    }
+
     fun toggleMediaWidget() {
         val enabled = !_uiState.value.mediaWidgetEnabled
         preferences.setMediaWidgetEnabled(enabled)
