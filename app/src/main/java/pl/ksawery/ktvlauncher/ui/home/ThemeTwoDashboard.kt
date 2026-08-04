@@ -389,7 +389,7 @@ private fun ThemeTwoShelf(
                 modifier = Modifier
                     .offset(y = if (isThemeThree) 4.dp else 0.dp)
                     .width(1.dp)
-                    .height(if (isThemeThree) 102.dp else 106.dp)
+                    .height(if (isThemeThree) 114.dp else 106.dp)
                     .background(Color(0x22FFFFFF)),
             )
             Spacer(Modifier.width(18.dp))
