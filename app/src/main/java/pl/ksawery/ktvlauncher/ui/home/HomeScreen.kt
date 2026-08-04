@@ -615,7 +615,7 @@ private fun ThemeThreeBackground() {
         }.getOrNull()
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF070A10)),
@@ -626,7 +626,8 @@ private fun ThemeThreeBackground() {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .height(maxHeight + 40.dp)
                     .offset(y = (-40).dp),
             )
         }
