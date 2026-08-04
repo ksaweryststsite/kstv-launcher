@@ -17,6 +17,7 @@ import pl.ksawery.ktvlauncher.data.MediaPlaybackRepository
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
@@ -35,6 +36,7 @@ class HomeViewModel(
             wallpaperUri = preferences.wallpaperUri(preferences.launcherTheme()),
             continueWatchingEnabled = preferences.continueWatchingEnabled(),
             shelfMode = preferences.shelfMode(),
+            homeFocusMode = preferences.homeFocusMode(),
             dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
             uiScale = preferences.uiScale(),
             themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
@@ -172,6 +174,14 @@ class HomeViewModel(
         _uiState.update { it.copy(shelfMode = mode) }
     }
 
+    fun cycleHomeFocusMode() {
+        val modes = HomeFocusMode.entries
+        val current = modes.indexOf(_uiState.value.homeFocusMode)
+        val mode = modes[(current + 1) % modes.size]
+        preferences.setHomeFocusMode(mode)
+        _uiState.update { it.copy(homeFocusMode = mode) }
+    }
+
     fun toggleDockBackground() {
         val enabled = !_uiState.value.dockBackgroundEnabled
         preferences.setDockBackgroundEnabled(enabled)
@@ -280,6 +290,7 @@ class HomeViewModel(
         _uiState.update {
             it.copy(
                 shelfMode = preferences.shelfMode(),
+                homeFocusMode = preferences.homeFocusMode(),
                 continueWatchingEnabled = preferences.continueWatchingEnabled(),
                 dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
                 uiScale = preferences.uiScale(),
