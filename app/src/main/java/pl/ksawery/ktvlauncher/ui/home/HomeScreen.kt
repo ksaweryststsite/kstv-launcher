@@ -609,15 +609,21 @@ private fun ThemeThreeBackground() {
         }.getOrNull()
     }
 
-    if (wallpaper != null) {
-        Image(
-            bitmap = wallpaper,
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-        )
-    } else {
-        Box(modifier = Modifier.fillMaxSize().background(Color(0xFF070A10)))
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF070A10)),
+    ) {
+        if (wallpaper != null) {
+            Image(
+                bitmap = wallpaper,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .offset(y = (-40).dp),
+            )
+        }
     }
     Box(
         modifier = Modifier
