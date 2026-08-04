@@ -11,6 +11,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -99,6 +100,7 @@ import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WatchNextItem
@@ -162,6 +164,8 @@ fun HomeRoute(
         onToggleDockBackground = viewModel::toggleDockBackground,
         onCycleUiScale = viewModel::cycleUiScale,
         onCycleWatchNextSource = viewModel::cycleWatchNextSource,
+        onCycleLauncherTheme = viewModel::cycleLauncherTheme,
+        onToggleMediaWidget = viewModel::toggleMediaWidget,
         onMoveApp = viewModel::moveApp,
         onToggleContinueWatching = { enabled ->
             viewModel.setContinueWatchingEnabled(enabled)
@@ -194,6 +198,8 @@ fun HomeScreen(
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
+    onCycleLauncherTheme: () -> Unit,
+    onToggleMediaWidget: () -> Unit,
     onMoveApp: (LaunchableApp, Int) -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
 ) {
@@ -234,21 +240,38 @@ fun HomeScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        LauncherBackground(uiState.wallpaperUri)
+        LauncherBackground(uiState.wallpaperUri, uiState.launcherTheme)
 
         when (screen) {
-            LauncherScreen.Home -> HomeDashboard(
-                uiState = uiState,
-                onLaunchApp = onLaunchApp,
-                onOpenApps = { screen = LauncherScreen.Apps },
-                onOpenLauncherSettings = { screen = LauncherScreen.Settings },
-                onOpenInfo = { showInfo = true },
-                onOpenWifi = onOpenWifi,
-                onOpenNotifications = onOpenNotifications,
-                onLaunchWatchNext = onLaunchWatchNext,
-                onRequestWatchNextAccess = onRequestWatchNextAccess,
-                onLongClickApp = { contextApp = it },
-            )
+            LauncherScreen.Home -> {
+                if (uiState.launcherTheme == LauncherThemeMode.Theme2) {
+                    ThemeTwoDashboard(
+                        uiState = uiState,
+                        onLaunchApp = onLaunchApp,
+                        onOpenApps = { screen = LauncherScreen.Apps },
+                        onOpenLauncherSettings = { screen = LauncherScreen.Settings },
+                        onOpenInfo = { showInfo = true },
+                        onOpenWifi = onOpenWifi,
+                        onOpenNotifications = onOpenNotifications,
+                        onLaunchWatchNext = onLaunchWatchNext,
+                        onRequestWatchNextAccess = onRequestWatchNextAccess,
+                        onLongClickApp = { contextApp = it },
+                    )
+                } else {
+                    HomeDashboard(
+                        uiState = uiState,
+                        onLaunchApp = onLaunchApp,
+                        onOpenApps = { screen = LauncherScreen.Apps },
+                        onOpenLauncherSettings = { screen = LauncherScreen.Settings },
+                        onOpenInfo = { showInfo = true },
+                        onOpenWifi = onOpenWifi,
+                        onOpenNotifications = onOpenNotifications,
+                        onLaunchWatchNext = onLaunchWatchNext,
+                        onRequestWatchNextAccess = onRequestWatchNextAccess,
+                        onLongClickApp = { contextApp = it },
+                    )
+                }
+            }
 
             LauncherScreen.Apps -> AllAppsScreen(
                 apps = uiState.apps,
@@ -279,6 +302,8 @@ fun HomeScreen(
                 onToggleDockBackground = onToggleDockBackground,
                 onCycleUiScale = onCycleUiScale,
                 onCycleWatchNextSource = onCycleWatchNextSource,
+                onCycleLauncherTheme = onCycleLauncherTheme,
+                onToggleMediaWidget = onToggleMediaWidget,
                 onToggleContinueWatching = onToggleContinueWatching,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onOpenSystemSettings = onOpenSystemSettings,
@@ -360,7 +385,10 @@ fun HomeScreen(
 }
 
 @Composable
-private fun LauncherBackground(customWallpaperUri: String?) {
+private fun LauncherBackground(
+    customWallpaperUri: String?,
+    theme: LauncherThemeMode,
+) {
     val context = LocalContext.current
     val customWallpaper by produceState<ImageBitmap?>(
         initialValue = null,
@@ -376,14 +404,18 @@ private fun LauncherBackground(customWallpaperUri: String?) {
             bitmap = customWallpaper!!,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = if (theme == LauncherThemeMode.Theme2) (-42).dp else 0.dp),
         )
     } else {
         Image(
             painter = painterResource(R.drawable.launcher_wallpaper),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = if (theme == LauncherThemeMode.Theme2) (-42).dp else 0.dp),
         )
     }
 
@@ -693,7 +725,11 @@ private fun ContentShelf(
             .height(102.dp),
     ) {
         if (shelfMode != ShelfMode.Hidden) {
-            Column(modifier = Modifier.width(326.dp)) {
+            Column(
+                modifier = Modifier
+                    .width(326.dp)
+                    .padding(horizontal = 10.dp),
+            ) {
                 SectionTitle(
                     if (shelfMode == ShelfMode.WatchNext) {
                         "Kontynuuj oglądanie"
@@ -1149,6 +1185,8 @@ private fun LauncherSettingsScreen(
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
+    onCycleLauncherTheme: () -> Unit,
+    onToggleMediaWidget: () -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
     onRequestWatchNextAccess: () -> Unit,
     onOpenSystemSettings: () -> Unit,
@@ -1232,9 +1270,29 @@ private fun LauncherSettingsScreen(
             Spacer(Modifier.height(18.dp))
             when (section) {
                 SettingsSection.Appearance -> {
+                    val themeLabel = if (uiState.launcherTheme == LauncherThemeMode.Theme1) {
+                        uiState.themeOneName
+                    } else {
+                        uiState.themeTwoName
+                    }
+                    SettingRow(
+                        "Motyw launchera",
+                        "$themeLabel · OK, aby przełączyć",
+                        Icons.Rounded.Wallpaper,
+                        onCycleLauncherTheme,
+                    )
+                    SettingsSpacer()
                     SettingRow("Wybierz tapetę", "Obraz z pamięci urządzenia", Icons.Rounded.Wallpaper, onPickWallpaper)
                     SettingsSpacer()
                     SettingRow("Przywróć domyślną", "Wbudowana tapeta KSTV", Icons.Rounded.Wallpaper, onResetWallpaper)
+                    SettingsSpacer()
+                    SettingRow(
+                        "Widżet odtwarzacza",
+                        "Spotify i inne aktywne sesje multimediów",
+                        Icons.Rounded.PlayArrow,
+                        onToggleMediaWidget,
+                        trailingText = if (uiState.mediaWidgetEnabled) "Wł." else "Wył.",
+                    )
                 }
                 SettingsSection.Layout -> {
                     SettingRow("Skala interfejsu", "$scaleLabel · OK, aby zmienić", Icons.Rounded.Apps, onCycleUiScale)
@@ -1763,6 +1821,7 @@ private fun AppContextMenu(
     ) {
         Column(
             modifier = Modifier
+                .focusGroup()
                 .width(330.dp)
                 .clip(RoundedCornerShape(13.dp))
                 .background(Color(0xF21A1E25))
@@ -1953,12 +2012,13 @@ private fun FocusableSurface(
                 clip = true
             }
             .border(
-                width = 1.dp,
-                color = if (focused && showFocusBorder) {
-                    Color(0x99FFFFFF)
-                } else {
-                    Color.Transparent
-                },
+                width = if (focused && showFocusBorder) 3.dp else 0.dp,
+                color = if (focused && showFocusBorder) Color(0xE7101620) else Color.Transparent,
+                shape = shape,
+            )
+            .border(
+                width = if (focused && showFocusBorder) 1.dp else 0.dp,
+                color = if (focused && showFocusBorder) Color(0xFFF6F8FB) else Color.Transparent,
                 shape = shape,
             )
             .onFocusChanged { focused = it.isFocused }
