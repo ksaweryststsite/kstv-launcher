@@ -92,6 +92,7 @@ internal fun ThemeTwoDashboard(
 
         if (uiState.mediaWidgetEnabled) {
             ThemeTwoMediaWidget(
+                uiState = uiState,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 112.dp, end = 34.dp),
@@ -177,7 +178,11 @@ private fun ThemeTwoIconButton(
 }
 
 @Composable
-private fun ThemeTwoMediaWidget(modifier: Modifier = Modifier) {
+private fun ThemeTwoMediaWidget(
+    uiState: HomeUiState,
+    modifier: Modifier = Modifier,
+) {
+    val playback = uiState.mediaPlayback
     Column(
         horizontalAlignment = Alignment.End,
         modifier = modifier.width(186.dp),
@@ -196,8 +201,18 @@ private fun ThemeTwoMediaWidget(modifier: Modifier = Modifier) {
             }
             Spacer(Modifier.width(9.dp))
             Column {
-                Text("Brak aktywnej sesji", color = KtvColors.TextPrimary, fontSize = 12.sp)
-                Text("Uruchom Spotify", color = KtvColors.TextSecondary, fontSize = 10.sp)
+                Text(
+                    playback?.title?.ifBlank { "Nieznany utwór" } ?: "Brak aktywnej sesji",
+                    color = KtvColors.TextPrimary,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                )
+                Text(
+                    playback?.subtitle?.ifBlank { playback.packageName } ?: "Uruchom Spotify",
+                    color = KtvColors.TextSecondary,
+                    fontSize = 10.sp,
+                    maxLines = 1,
+                )
             }
         }
         Spacer(Modifier.height(8.dp))
