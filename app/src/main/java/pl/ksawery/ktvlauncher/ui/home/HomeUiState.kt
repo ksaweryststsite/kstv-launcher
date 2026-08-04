@@ -28,6 +28,7 @@ data class HomeUiState(
     val launcherTheme: LauncherThemeMode = LauncherThemeMode.Theme1,
     val themeOneName: String = "Theme 1",
     val themeTwoName: String = "Theme 2",
+    val themeThreeName: String = "Theme 3",
     val mediaWidgetEnabled: Boolean = false,
     val mediaPlayback: MediaPlaybackInfo? = null,
     val weather: WeatherSnapshot? = null,
