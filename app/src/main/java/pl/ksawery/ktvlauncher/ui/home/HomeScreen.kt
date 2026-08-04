@@ -106,6 +106,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
+import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
@@ -170,6 +171,7 @@ fun HomeRoute(
         onSetDockShortcut = viewModel::setDockShortcut,
         onSetFeaturedApp = viewModel::setFeaturedApp,
         onCycleShelfMode = viewModel::cycleShelfMode,
+        onCycleHomeFocusMode = viewModel::cycleHomeFocusMode,
         onResetWallpaper = viewModel::resetWallpaper,
         onToggleDockBackground = viewModel::toggleDockBackground,
         onCycleUiScale = viewModel::cycleUiScale,
@@ -206,6 +208,7 @@ fun HomeScreen(
     onSetDockShortcut: (Int, LaunchableApp) -> Unit,
     onSetFeaturedApp: (Int, LaunchableApp) -> Unit,
     onCycleShelfMode: () -> Unit,
+    onCycleHomeFocusMode: () -> Unit,
     onResetWallpaper: () -> Unit,
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
@@ -262,6 +265,7 @@ fun HomeScreen(
                     uiState.launcherTheme == LauncherThemeMode.Theme3
                 ) {
                     ThemeTwoDashboard(
+                        homeFocusRequest = homeRequest,
                         isThemeThree = uiState.launcherTheme == LauncherThemeMode.Theme3,
                         uiState = uiState,
                         onLaunchApp = onLaunchApp,
@@ -276,6 +280,7 @@ fun HomeScreen(
                     )
                 } else {
                     HomeDashboard(
+                        homeFocusRequest = homeRequest,
                         uiState = uiState,
                         onLaunchApp = onLaunchApp,
                         onOpenApps = { screen = LauncherScreen.Apps },
@@ -317,6 +322,7 @@ fun HomeScreen(
                     screen = LauncherScreen.FeaturedPicker
                 },
                 onCycleShelfMode = onCycleShelfMode,
+                onCycleHomeFocusMode = onCycleHomeFocusMode,
                 onToggleDockBackground = onToggleDockBackground,
                 onCycleUiScale = onCycleUiScale,
                 onCycleWatchNextSource = onCycleWatchNextSource,
@@ -640,6 +646,7 @@ private fun ThemeThreeBackground() {
 
 @Composable
 private fun HomeDashboard(
+    homeFocusRequest: Int,
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onOpenApps: () -> Unit,
@@ -684,6 +691,7 @@ private fun HomeDashboard(
         )
 
         UnifiedDock(
+            homeFocusRequest = homeFocusRequest,
             uiState = uiState,
             onOpenSettings = onOpenLauncherSettings,
             onOpenApps = onOpenApps,
@@ -702,6 +710,7 @@ private fun HomeDashboard(
 
 @Composable
 private fun UnifiedDock(
+    homeFocusRequest: Int,
     uiState: HomeUiState,
     onOpenSettings: () -> Unit,
     onOpenApps: () -> Unit,
@@ -740,6 +749,8 @@ private fun UnifiedDock(
             .padding(start = 14.dp, top = 8.dp, end = 14.dp, bottom = 8.dp),
     ) {
         ContentShelf(
+            homeFocusRequest = homeFocusRequest,
+            homeFocusMode = uiState.homeFocusMode,
             shelfMode = uiState.shelfMode,
             watchNext = uiState.watchNext,
             watchNextStatus = uiState.watchNextStatus,
@@ -913,6 +924,8 @@ private fun GreetingAndWeather(uiState: HomeUiState, modifier: Modifier = Modifi
 
 @Composable
 private fun ContentShelf(
+    homeFocusRequest: Int,
+    homeFocusMode: HomeFocusMode,
     shelfMode: ShelfMode,
     watchNext: List<WatchNextItem>,
     watchNextStatus: WatchNextStatus,
@@ -925,15 +938,29 @@ private fun ContentShelf(
     onLongClickApp: (LaunchableApp) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val firstFocusRequester = remember { FocusRequester() }
+    val firstLeftFocusRequester = remember { FocusRequester() }
+    val firstFavoriteFocusRequester = remember { FocusRequester() }
+    val hasFirstLeftTile = shelfMode == ShelfMode.WatchNext ||
+        (shelfMode == ShelfMode.AppShortcuts && featuredApps.isNotEmpty())
+
     LaunchedEffect(
+        homeFocusRequest,
+        homeFocusMode,
         shelfMode,
         watchNextStatus,
         featuredApps.firstOrNull()?.stableKey,
         favorites.firstOrNull()?.stableKey,
     ) {
-        if (watchNext.isNotEmpty() || featuredApps.isNotEmpty() || favorites.isNotEmpty()) {
-            firstFocusRequester.requestFocus()
+        if (homeFocusRequest <= 0) return@LaunchedEffect
+        when (homeFocusMode) {
+            HomeFocusMode.FirstLargeTile -> {
+                if (hasFirstLeftTile) firstLeftFocusRequester.requestFocus()
+                else if (favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+            }
+            HomeFocusMode.FirstFavorite -> {
+                if (favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+            }
+            HomeFocusMode.KeepCurrent -> Unit
         }
     }
 
@@ -978,7 +1005,7 @@ private fun ContentShelf(
                                         }?.icon,
                                         onClick = { onLaunchWatchNext(item) },
                                         modifier = if (index == 0) {
-                                            Modifier.focusRequester(firstFocusRequester)
+                                            Modifier.focusRequester(firstLeftFocusRequester)
                                         } else {
                                             Modifier
                                         },
@@ -988,7 +1015,7 @@ private fun ContentShelf(
                                 WatchNextEmptyCard(
                                     status = watchNextStatus,
                                     onClick = onRequestWatchNextAccess,
-                                    modifier = Modifier.focusRequester(firstFocusRequester),
+                                    modifier = Modifier.focusRequester(firstLeftFocusRequester),
                                 )
                             }
                         }
@@ -1000,7 +1027,7 @@ private fun ContentShelf(
                                     onClick = { onLaunchApp(app) },
                                     onLongClick = { onLongClickApp(app) },
                                     modifier = if (index == 0) {
-                                        Modifier.focusRequester(firstFocusRequester)
+                                        Modifier.focusRequester(firstLeftFocusRequester)
                                     } else {
                                         Modifier
                                     },
@@ -1029,17 +1056,8 @@ private fun ContentShelf(
                         app = app,
                         onClick = { onLaunchApp(app) },
                         onLongClick = { onLongClickApp(app) },
-                        modifier = if (
-                            index == 0 &&
-                            (
-                                shelfMode == ShelfMode.Hidden ||
-                                    (
-                                        shelfMode == ShelfMode.AppShortcuts &&
-                                            featuredApps.isEmpty()
-                                    )
-                            )
-                        ) {
-                            Modifier.focusRequester(firstFocusRequester)
+                        modifier = if (index == 0) {
+                            Modifier.focusRequester(firstFavoriteFocusRequester)
                         } else {
                             Modifier
                         },
@@ -1402,6 +1420,7 @@ private fun LauncherSettingsScreen(
     onPickDockShortcut: (Int) -> Unit,
     onPickFeaturedApp: (Int) -> Unit,
     onCycleShelfMode: () -> Unit,
+    onCycleHomeFocusMode: () -> Unit,
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
@@ -1424,6 +1443,11 @@ private fun LauncherSettingsScreen(
         ShelfMode.WatchNext -> "Kontynuuj oglądanie"
         ShelfMode.AppShortcuts -> "Dwa duże skróty"
         ShelfMode.Hidden -> "Ukryta"
+    }
+    val homeFocusLabel = when (uiState.homeFocusMode) {
+        HomeFocusMode.FirstLargeTile -> "Pierwszy duży kafelek"
+        HomeFocusMode.FirstFavorite -> "Pierwsze Ulubione"
+        HomeFocusMode.KeepCurrent -> "Bez zmiany"
     }
     val scaleLabel = when (uiState.uiScale) {
         UiScale.Auto -> "Automatyczna"
@@ -1533,6 +1557,13 @@ private fun LauncherSettingsScreen(
                     SettingRow("Skala interfejsu", "$scaleLabel · OK, aby zmienić", Icons.Rounded.Apps, onCycleUiScale)
                     SettingsSpacer()
                     SettingRow("Lewa sekcja", "$shelfModeLabel · OK, aby zmienić", Icons.Rounded.PlayArrow, onCycleShelfMode)
+                    SettingsSpacer()
+                    SettingRow(
+                        "Fokus po HOME",
+                        "$homeFocusLabel · OK, aby zmienić",
+                        Icons.Rounded.PlayArrow,
+                        onCycleHomeFocusMode,
+                    )
                     SettingsSpacer()
                     SettingRow(
                         "Kontynuuj oglądanie",
