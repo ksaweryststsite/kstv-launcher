@@ -1524,9 +1524,8 @@ private fun ThemeNameField(
 ) {
     var focused by remember { mutableStateOf(false) }
     Column(
-        modifier = modifier
+        modifier = Modifier
             .width(420.dp)
-            .onFocusChanged { focused = it.isFocused }
             .border(
                 if (focused) 2.dp else 1.dp,
                 if (focused) Color(0xFFF6F8FB) else Color(0x3AFFFFFF),
@@ -1542,7 +1541,9 @@ private fun ThemeNameField(
             onValueChange = { onValueChange(it.take(24)) },
             singleLine = true,
             textStyle = TextStyle(color = KtvColors.TextPrimary, fontSize = 18.sp),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier
+                .fillMaxWidth()
+                .onFocusChanged { focused = it.isFocused },
         )
     }
 }
