@@ -68,6 +68,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
 import pl.ksawery.ktvlauncher.model.ShelfMode
