@@ -670,8 +670,8 @@ private fun HomeDashboard(
                         it.componentName.packageName == playback.packageName
                     }?.icon,
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 134.dp, end = 34.dp),
+                        .align(Alignment.TopStart)
+                        .padding(top = 34.dp, start = 42.dp),
                 )
             }
 
