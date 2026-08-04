@@ -1,6 +1,7 @@
 package pl.ksawery.ktvlauncher.ui.home
 
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
 import pl.ksawery.ktvlauncher.model.ShelfMode
@@ -17,6 +18,7 @@ data class HomeUiState(
     val dockShortcuts: List<LaunchableApp> = emptyList(),
     val featuredApps: List<LaunchableApp> = emptyList(),
     val shelfMode: ShelfMode = ShelfMode.WatchNext,
+    val homeFocusMode: HomeFocusMode = HomeFocusMode.KeepCurrent,
     val recent: List<LaunchableApp> = emptyList(),
     val watchNext: List<WatchNextItem> = emptyList(),
     val watchNextStatus: WatchNextStatus = WatchNextStatus.Loading,
