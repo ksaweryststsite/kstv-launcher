@@ -41,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -75,6 +77,7 @@ import pl.ksawery.ktvlauncher.ui.theme.KtvColors
 
 @Composable
 internal fun ThemeTwoDashboard(
+    homeFocusRequest: Int,
     isThemeThree: Boolean,
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
@@ -131,6 +134,7 @@ internal fun ThemeTwoDashboard(
                 ),
         ) {
             ThemeTwoShelf(
+                homeFocusRequest = homeFocusRequest,
                 uiState = uiState,
                 onLaunchApp = onLaunchApp,
                 onLaunchWatchNext = onLaunchWatchNext,
@@ -325,6 +329,7 @@ private fun ThemeTwoGreeting(uiState: HomeUiState, modifier: Modifier = Modifier
 
 @Composable
 private fun ThemeTwoShelf(
+    homeFocusRequest: Int,
     isThemeThree: Boolean,
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
@@ -333,6 +338,31 @@ private fun ThemeTwoShelf(
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
     val hasLeftShelf = uiState.shelfMode != ShelfMode.Hidden
+    val firstLeftFocusRequester = remember { FocusRequester() }
+    val firstFavoriteFocusRequester = remember { FocusRequester() }
+    val hasFirstLeftTile = uiState.shelfMode == ShelfMode.WatchNext ||
+        (uiState.shelfMode == ShelfMode.AppShortcuts && uiState.featuredApps.isNotEmpty())
+
+    androidx.compose.runtime.LaunchedEffect(
+        homeFocusRequest,
+        uiState.homeFocusMode,
+        uiState.shelfMode,
+        uiState.watchNextStatus,
+        uiState.featuredApps.firstOrNull()?.componentName,
+        uiState.favorites.firstOrNull()?.componentName,
+    ) {
+        if (homeFocusRequest <= 0) return@LaunchedEffect
+        when (uiState.homeFocusMode) {
+            HomeFocusMode.FirstLargeTile -> {
+                if (hasFirstLeftTile) firstLeftFocusRequester.requestFocus()
+                else if (uiState.favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+            }
+            HomeFocusMode.FirstFavorite -> {
+                if (uiState.favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+            }
+            HomeFocusMode.KeepCurrent -> Unit
+        }
+    }
 
     Row(verticalAlignment = if (isThemeThree) Alignment.Top else Alignment.Bottom) {
         if (hasLeftShelf) {
@@ -350,12 +380,13 @@ private fun ThemeTwoShelf(
                         ShelfMode.WatchNext -> {
                             if (uiState.watchNext.isEmpty()) {
                                 ThemeTwoWatchNextEmpty(
-                                    uiState.watchNextStatus,
-                                    onRequestWatchNextAccess,
-                                    isThemeThree,
+                                    status = uiState.watchNextStatus,
+                                    onClick = onRequestWatchNextAccess,
+                                    isThemeThree = isThemeThree,
+                                    focusRequester = firstLeftFocusRequester,
                                 )
                             } else {
-                                uiState.watchNext.take(2).forEach { item ->
+                                uiState.watchNext.take(2).forEachIndexed { index, item ->
                                     ThemeTwoWatchNextCard(
                                         item = item,
                                         appIcon = uiState.apps.firstOrNull {
@@ -363,18 +394,20 @@ private fun ThemeTwoShelf(
                                         }?.icon,
                                         onClick = { onLaunchWatchNext(item) },
                                         isThemeThree = isThemeThree,
+                                        focusRequester = if (index == 0) firstLeftFocusRequester else null,
                                     )
                                 }
                             }
                         }
 
                         ShelfMode.AppShortcuts -> {
-                            uiState.featuredApps.take(2).forEach { app ->
+                            uiState.featuredApps.take(2).forEachIndexed { index, app ->
                                 ThemeTwoFeaturedAppCard(
                                     app = app,
                                     onClick = { onLaunchApp(app) },
                                     onLongClick = { onLongClickApp(app) },
                                     isThemeThree = isThemeThree,
+                                    focusRequester = if (index == 0) firstLeftFocusRequester else null,
                                 )
                             }
                         }
@@ -403,12 +436,13 @@ private fun ThemeTwoShelf(
             ThemeTwoSectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                uiState.favorites.take(8).forEach { app ->
+                uiState.favorites.take(8).forEachIndexed { index, app ->
                     ThemeTwoFavoriteTile(
                         app = app,
                         onClick = { onLaunchApp(app) },
                         onLongClick = { onLongClickApp(app) },
                         isThemeThree = isThemeThree,
+                        focusRequester = if (index == 0) firstFavoriteFocusRequester else null,
                     )
                 }
             }
@@ -427,10 +461,12 @@ private fun ThemeTwoFeaturedAppCard(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     isThemeThree: Boolean,
+    focusRequester: FocusRequester? = null,
 ) {
     ThemeTwoFocusable(
         onClick = onClick,
         onLongClick = onLongClick,
+        focusRequester = focusRequester,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
             .width(if (isThemeThree) 154.dp else 150.dp)
@@ -469,10 +505,12 @@ private fun ThemeTwoWatchNextCard(
     appIcon: ImageBitmap?,
     onClick: () -> Unit,
     isThemeThree: Boolean,
+    focusRequester: FocusRequester? = null,
 ) {
     val poster = themeTwoUriImage(item.posterUri)
     ThemeTwoFocusable(
         onClick = onClick,
+        focusRequester = focusRequester,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
             .width(if (isThemeThree) 154.dp else 150.dp)
@@ -528,9 +566,11 @@ private fun ThemeTwoWatchNextEmpty(
     status: WatchNextStatus,
     onClick: () -> Unit,
     isThemeThree: Boolean,
+    focusRequester: FocusRequester? = null,
 ) {
     ThemeTwoFocusable(
         onClick = onClick,
+        focusRequester = focusRequester,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
             .width(if (isThemeThree) 154.dp else 150.dp)
@@ -557,10 +597,12 @@ private fun ThemeTwoFavoriteTile(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     isThemeThree: Boolean,
+    focusRequester: FocusRequester? = null,
 ) {
     ThemeTwoFocusable(
         onClick = onClick,
         onLongClick = onLongClick,
+        focusRequester = focusRequester,
         shape = RoundedCornerShape(13.dp),
         modifier = Modifier.size(if (isThemeThree) 52.dp else 48.dp),
     ) {
@@ -646,6 +688,7 @@ private fun ThemeTwoTextAction(
 private fun ThemeTwoFocusable(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
+    focusRequester: FocusRequester? = null,
     shape: androidx.compose.ui.graphics.Shape,
     modifier: Modifier = Modifier,
     content: @Composable (Boolean) -> Unit,
@@ -662,6 +705,7 @@ private fun ThemeTwoFocusable(
     )
     Box(
         modifier = modifier
+            .then(focusRequester?.let { Modifier.focusRequester(it) } ?: Modifier)
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
