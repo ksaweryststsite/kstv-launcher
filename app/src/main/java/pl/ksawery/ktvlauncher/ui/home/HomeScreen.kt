@@ -8,6 +8,7 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,12 +68,14 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -410,6 +413,11 @@ private fun LauncherBackground(
     customWallpaperUri: String?,
     theme: LauncherThemeMode,
 ) {
+    if (theme == LauncherThemeMode.Theme2) {
+        ThemeTwoBackground()
+        return
+    }
+
     val context = LocalContext.current
     val customWallpaper by produceState<ImageBitmap?>(
         initialValue = null,
@@ -425,18 +433,14 @@ private fun LauncherBackground(
             bitmap = customWallpaper!!,
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .offset(y = 0.dp),
+            modifier = Modifier.fillMaxSize(),
         )
     } else {
         Image(
             painter = painterResource(R.drawable.launcher_wallpaper),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .offset(y = 0.dp),
+            modifier = Modifier.fillMaxSize(),
         )
     }
 
@@ -452,6 +456,124 @@ private fun LauncherBackground(
                 ),
             ),
     )
+}
+
+@Composable
+private fun ThemeTwoBackground() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF05080E),
+                    Color(0xFF111824),
+                    Color(0xFF283240),
+                    Color(0xFF10151C),
+                    Color(0xFF05070A),
+                ),
+                startY = 0f,
+                endY = height * 0.76f,
+            ),
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    Color(0x264E617C),
+                    Color(0x0B6A7785),
+                    Color.Transparent,
+                ),
+                center = Offset(width * 0.54f, height * 0.37f),
+                radius = width * 0.72f,
+            ),
+        )
+
+        val mainRidge = Path().apply {
+            moveTo(-width * 0.04f, height * 0.40f)
+            cubicTo(
+                width * 0.16f, height * 0.27f,
+                width * 0.32f, height * 0.49f,
+                width * 0.54f, height * 0.60f,
+            )
+            cubicTo(
+                width * 0.72f, height * 0.71f,
+                width * 0.85f, height * 0.47f,
+                width * 1.05f, height * 0.39f,
+            )
+            lineTo(width * 1.05f, height * 0.70f)
+            lineTo(-width * 0.04f, height * 0.70f)
+            close()
+        }
+        drawPath(
+            path = mainRidge,
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF030508), Color(0xFF090D12)),
+                startY = height * 0.32f,
+                endY = height * 0.71f,
+            ),
+        )
+
+        val mainRidgeLight = Path().apply {
+            moveTo(-width * 0.04f, height * 0.40f)
+            cubicTo(
+                width * 0.16f, height * 0.27f,
+                width * 0.32f, height * 0.49f,
+                width * 0.54f, height * 0.60f,
+            )
+            cubicTo(
+                width * 0.72f, height * 0.71f,
+                width * 0.85f, height * 0.47f,
+                width * 1.05f, height * 0.39f,
+            )
+        }
+        drawPath(mainRidgeLight, Color(0x243C2716), style = Stroke(width = 28.dp.toPx()))
+        drawPath(mainRidgeLight, Color(0x80D7A768), style = Stroke(width = 2.2.dp.toPx()))
+
+        val innerRidge = Path().apply {
+            moveTo(width * 0.31f, height * 0.53f)
+            cubicTo(
+                width * 0.43f, height * 0.50f,
+                width * 0.54f, height * 0.70f,
+                width * 0.69f, height * 0.56f,
+            )
+            cubicTo(
+                width * 0.80f, height * 0.47f,
+                width * 0.86f, height * 0.63f,
+                width * 0.95f, height * 0.51f,
+            )
+        }
+        drawPath(innerRidge, Color(0x1EBC8A4A), style = Stroke(width = 22.dp.toPx()))
+        drawPath(innerRidge, Color(0x6EC49356), style = Stroke(width = 1.6.dp.toPx()))
+
+        val lowerRidge = Path().apply {
+            moveTo(width * 0.36f, height * 0.61f)
+            cubicTo(
+                width * 0.50f, height * 0.68f,
+                width * 0.63f, height * 0.71f,
+                width * 0.76f, height * 0.58f,
+            )
+            cubicTo(
+                width * 0.86f, height * 0.49f,
+                width * 0.94f, height * 0.48f,
+                width * 1.04f, height * 0.44f,
+            )
+        }
+        drawPath(lowerRidge, Color(0x2AB68148), style = Stroke(width = 24.dp.toPx()))
+        drawPath(lowerRidge, Color(0x7BD6A260), style = Stroke(width = 1.8.dp.toPx()))
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color.Transparent,
+                    Color(0x9B05070A),
+                    Color(0xE805070A),
+                ),
+                startY = height * 0.62f,
+                endY = height,
+            ),
+        )
+    }
 }
 
 @Composable
