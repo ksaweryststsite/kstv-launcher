@@ -74,6 +74,7 @@ import pl.ksawery.ktvlauncher.ui.theme.KtvColors
 
 @Composable
 internal fun ThemeTwoDashboard(
+    isThemeThree: Boolean,
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onOpenApps: () -> Unit,
@@ -113,7 +114,7 @@ internal fun ThemeTwoDashboard(
             uiState = uiState,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.41f)
+                .offset(y = maxHeight * if (isThemeThree) 0.42f else 0.41f)
                 .padding(start = 42.dp),
         )
 
@@ -130,8 +131,10 @@ internal fun ThemeTwoDashboard(
                 onLaunchWatchNext = onLaunchWatchNext,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onLongClickApp = onLongClickApp,
+                isThemeThree = isThemeThree,
             )
             ThemeTwoActionBar(
+                isThemeThree = isThemeThree,
                 shortcuts = uiState.dockShortcuts,
                 onLaunchApp = onLaunchApp,
                 onOpenApps = onOpenApps,
@@ -317,19 +320,20 @@ private fun ThemeTwoGreeting(uiState: HomeUiState, modifier: Modifier = Modifier
 
 @Composable
 private fun ThemeTwoShelf(
+    isThemeThree: Boolean,
     uiState: HomeUiState,
     onLaunchApp: (LaunchableApp) -> Unit,
     onLaunchWatchNext: (WatchNextItem) -> Unit,
     onRequestWatchNextAccess: () -> Unit,
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
-    Row(verticalAlignment = Alignment.Bottom) {
+    Row(verticalAlignment = if (isThemeThree) Alignment.Top else Alignment.Bottom) {
         Column {
             ThemeTwoSectionTitle("Kontynuuj oglądanie")
             Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (uiState.watchNext.isEmpty()) {
-                    ThemeTwoWatchNextEmpty(uiState.watchNextStatus, onRequestWatchNextAccess)
+                    ThemeTwoWatchNextEmpty(uiState.watchNextStatus, onRequestWatchNextAccess, isThemeThree)
                 } else {
                     uiState.watchNext.take(2).forEach { item ->
                         ThemeTwoWatchNextCard(
@@ -338,6 +342,7 @@ private fun ThemeTwoShelf(
                                 it.componentName.packageName == item.packageName
                             }?.icon,
                             onClick = { onLaunchWatchNext(item) },
+                            isThemeThree = isThemeThree,
                         )
                     }
                 }
@@ -360,6 +365,7 @@ private fun ThemeTwoShelf(
                         app = app,
                         onClick = { onLaunchApp(app) },
                         onLongClick = { onLongClickApp(app) },
+                        isThemeThree = isThemeThree,
                     )
                 }
             }
@@ -377,14 +383,15 @@ private fun ThemeTwoWatchNextCard(
     item: WatchNextItem,
     appIcon: ImageBitmap?,
     onClick: () -> Unit,
+    isThemeThree: Boolean,
 ) {
     val poster = themeTwoUriImage(item.posterUri)
     ThemeTwoFocusable(
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(150.dp)
-            .height(80.dp),
+            .width(if (isThemeThree) 164.dp else 150.dp)
+            .height(if (isThemeThree) 88.dp else 80.dp),
     ) {
         Box(
             modifier = Modifier
@@ -432,13 +439,17 @@ private fun ThemeTwoWatchNextCard(
 }
 
 @Composable
-private fun ThemeTwoWatchNextEmpty(status: WatchNextStatus, onClick: () -> Unit) {
+private fun ThemeTwoWatchNextEmpty(
+    status: WatchNextStatus,
+    onClick: () -> Unit,
+    isThemeThree: Boolean,
+) {
     ThemeTwoFocusable(
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(150.dp)
-            .height(80.dp),
+            .width(if (isThemeThree) 164.dp else 150.dp)
+            .height(if (isThemeThree) 88.dp else 80.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -460,12 +471,13 @@ private fun ThemeTwoFavoriteTile(
     app: LaunchableApp,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    isThemeThree: Boolean,
 ) {
     ThemeTwoFocusable(
         onClick = onClick,
         onLongClick = onLongClick,
         shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.size(48.dp),
+        modifier = Modifier.size(if (isThemeThree) 52.dp else 48.dp),
     ) {
         Image(
             bitmap = app.icon,
@@ -480,6 +492,7 @@ private fun ThemeTwoFavoriteTile(
 
 @Composable
 private fun ThemeTwoActionBar(
+    isThemeThree: Boolean,
     shortcuts: List<LaunchableApp>,
     onLaunchApp: (LaunchableApp) -> Unit,
     onOpenApps: () -> Unit,
@@ -487,11 +500,11 @@ private fun ThemeTwoActionBar(
     onOpenInfo: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        ThemeTwoTextAction("Ustawienia", onOpenSettings, Modifier.weight(1f))
-        ThemeTwoTextAction("Aplikacje", onOpenApps, Modifier.weight(1f))
-        ThemeTwoTextAction("Informacje", onOpenInfo, Modifier.weight(1f))
+        ThemeTwoTextAction("Ustawienia", onOpenSettings, isThemeThree, Modifier.weight(1f))
+        ThemeTwoTextAction("Aplikacje", onOpenApps, isThemeThree, Modifier.weight(1f))
+        ThemeTwoTextAction("Informacje", onOpenInfo, isThemeThree, Modifier.weight(1f))
         shortcuts.take(3).forEach { app ->
-            ThemeTwoTextAction(app.label, { onLaunchApp(app) }, Modifier.weight(1f))
+            ThemeTwoTextAction(app.label, { onLaunchApp(app) }, isThemeThree, Modifier.weight(1f))
         }
         repeat(3 - shortcuts.take(3).size) {
             Spacer(Modifier.weight(1f))
@@ -503,9 +516,10 @@ private fun ThemeTwoActionBar(
 private fun ThemeTwoTextAction(
     label: String,
     onClick: () -> Unit,
+    isThemeThree: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(12.dp)
+    val shape = RoundedCornerShape(if (isThemeThree) 10.dp else 12.dp)
     ThemeTwoFocusable(
         onClick = onClick,
         shape = shape,
@@ -518,6 +532,8 @@ private fun ThemeTwoTextAction(
                 .background(
                     if (focused) {
                         Color(0xC0242B35)
+                    } else if (isThemeThree) {
+                        Color(0xA9121820)
                     } else {
                         Color(0xA7080C12)
                     },
