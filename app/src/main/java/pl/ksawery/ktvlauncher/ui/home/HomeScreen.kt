@@ -423,7 +423,7 @@ private fun LauncherBackground(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = if (theme == LauncherThemeMode.Theme2) (-42).dp else 0.dp),
+                .offset(y = 0.dp),
         )
     } else {
         Image(
@@ -432,7 +432,7 @@ private fun LauncherBackground(
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = if (theme == LauncherThemeMode.Theme2) (-42).dp else 0.dp),
+                .offset(y = 0.dp),
         )
     }
 
@@ -472,6 +472,20 @@ private fun HomeDashboard(
                 .align(Alignment.TopEnd)
                 .padding(top = 26.dp, end = 34.dp),
         )
+
+        uiState.mediaPlayback
+            ?.takeIf { uiState.mediaWidgetEnabled && it.isPlaying }
+            ?.let { playback ->
+                ActiveMediaWidget(
+                    playback = playback,
+                    appIcon = uiState.apps.firstOrNull {
+                        it.componentName.packageName == playback.packageName
+                    }?.icon,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 134.dp, end = 34.dp),
+                )
+            }
 
         GreetingAndWeather(
             uiState = uiState,
