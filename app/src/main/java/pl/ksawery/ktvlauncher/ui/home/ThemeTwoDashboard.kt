@@ -361,7 +361,7 @@ private fun ThemeTwoShelf(
         )
         Spacer(Modifier.width(18.dp))
         Column(
-            modifier = Modifier.offset(y = if (isThemeThree) (-9).dp else 0.dp),
+            modifier = Modifier.offset(y = if (isThemeThree) (-5).dp else 0.dp),
         ) {
             ThemeTwoSectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(11.dp))
