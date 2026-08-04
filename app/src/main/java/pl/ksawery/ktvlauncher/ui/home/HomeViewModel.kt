@@ -3,6 +3,9 @@ package pl.ksawery.ktvlauncher.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,12 +45,13 @@ class HomeViewModel(
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     private var allWatchNextItems = emptyList<pl.ksawery.ktvlauncher.model.WatchNextItem>()
+    private var mediaPollingJob: Job? = null
 
     init {
         refreshApps()
         refreshWeather()
         refreshWatchNext()
-        refreshMediaPlayback()
+        startMediaPlaybackMonitoring()
     }
 
     fun refreshApps() {
@@ -207,7 +211,7 @@ class HomeViewModel(
                 mediaPlayback = if (enabled) it.mediaPlayback else null,
             )
         }
-        refreshMediaPlayback()
+        startMediaPlaybackMonitoring()
     }
 
     fun refreshMediaPlayback() {
@@ -215,11 +219,28 @@ class HomeViewModel(
             _uiState.update { it.copy(mediaPlayback = null) }
             return
         }
-        viewModelScope.launch {
-            _uiState.update {
-                it.copy(mediaPlayback = mediaPlaybackRepository.currentPlayback())
+        _uiState.update {
+            it.copy(mediaPlayback = mediaPlaybackRepository.currentPlayback())
+        }
+    }
+
+    private fun startMediaPlaybackMonitoring() {
+        mediaPollingJob?.cancel()
+        if (!_uiState.value.mediaWidgetEnabled) {
+            _uiState.update { it.copy(mediaPlayback = null) }
+            return
+        }
+        mediaPollingJob = viewModelScope.launch {
+            while (isActive) {
+                refreshMediaPlayback()
+                delay(MEDIA_POLLING_INTERVAL_MS)
             }
         }
+    }
+
+    override fun onCleared() {
+        mediaPollingJob?.cancel()
+        super.onCleared()
     }
 
     fun cycleWatchNextSource() {
@@ -262,6 +283,7 @@ class HomeViewModel(
         }
         applyApps(_uiState.value.apps)
         refreshWatchNext()
+        startMediaPlaybackMonitoring()
     }
 
     fun setContinueWatchingEnabled(enabled: Boolean) {
@@ -386,6 +408,7 @@ class HomeViewModel(
         const val MAX_DOCK_SHORTCUTS = 3
         const val MAX_FEATURED_APPS = 2
         const val MAX_WATCH_NEXT_VISIBLE = 4
+        const val MEDIA_POLLING_INTERVAL_MS = 1_000L
         val FEATURED_LABELS = listOf("Netflix", "Prime Video")
         val FAVORITE_LABELS = listOf(
             "Netflix", "Spotify", "YouTube", "Prime Video",
