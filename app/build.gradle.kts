@@ -12,8 +12,8 @@ android {
         applicationId = "pl.ksawery.ktvlauncher"
         minSdk = 30
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.7.1-theme2-refined"
+        versionCode = 15
+        versionName = "0.7.2-theme2-layout"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
