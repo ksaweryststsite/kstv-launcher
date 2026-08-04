@@ -22,6 +22,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import pl.ksawery.ktvlauncher.data.AndroidAppRepository
 import pl.ksawery.ktvlauncher.data.LauncherPreferences
+import pl.ksawery.ktvlauncher.data.MediaPlaybackRepository
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.domain.AppLauncher
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
             appRepository = appRepository,
             weatherRepository = WeatherRepository(),
             watchNextRepository = WatchNextRepository(this),
+            mediaPlaybackRepository = MediaPlaybackRepository(this),
             preferences = preferences,
         )
         val appLauncher = AppLauncher(this)
@@ -141,6 +143,7 @@ class MainActivity : ComponentActivity() {
         if (::homeViewModel.isInitialized) {
             homeViewModel.refreshApps()
             homeViewModel.refreshWeather()
+            homeViewModel.refreshMediaPlayback()
         }
     }
 
