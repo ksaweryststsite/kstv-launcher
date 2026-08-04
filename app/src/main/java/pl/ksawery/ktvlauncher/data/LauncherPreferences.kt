@@ -95,15 +95,15 @@ class LauncherPreferences(context: Context) {
     }
 
     fun themeName(theme: LauncherThemeMode): String = preferences.getString(
-        if (theme == LauncherThemeMode.Theme1) KEY_THEME_ONE_NAME else KEY_THEME_TWO_NAME,
-        if (theme == LauncherThemeMode.Theme1) "Theme 1" else "Theme 2",
+        themeNameKey(theme),
+        themeDefaultName(theme),
     ).orEmpty()
 
     fun setThemeName(theme: LauncherThemeMode, name: String) {
-        val key = if (theme == LauncherThemeMode.Theme1) KEY_THEME_ONE_NAME else KEY_THEME_TWO_NAME
-        preferences.edit().putString(key, name.trim().take(24).ifBlank {
-            if (theme == LauncherThemeMode.Theme1) "Theme 1" else "Theme 2"
-        }).apply()
+        preferences.edit().putString(
+            themeNameKey(theme),
+            name.trim().take(24).ifBlank { themeDefaultName(theme) },
+        ).apply()
     }
 
     fun mediaWidgetEnabled(): Boolean = preferences.getBoolean(KEY_MEDIA_WIDGET, false)
@@ -112,14 +112,21 @@ class LauncherPreferences(context: Context) {
         preferences.edit().putBoolean(KEY_MEDIA_WIDGET, enabled).apply()
     }
 
-    fun wallpaperUri(): String? = preferences.getString(KEY_WALLPAPER_URI, null)
-
-    fun setWallpaperUri(uri: String) {
-        preferences.edit().putString(KEY_WALLPAPER_URI, uri).apply()
+    fun wallpaperUri(theme: LauncherThemeMode): String? {
+        val scoped = preferences.getString(wallpaperKey(theme), null)
+        return scoped ?: if (theme == LauncherThemeMode.Theme1) {
+            preferences.getString(KEY_WALLPAPER_URI_LEGACY, null)
+        } else {
+            null
+        }
     }
 
-    fun resetWallpaper() {
-        preferences.edit().remove(KEY_WALLPAPER_URI).apply()
+    fun setWallpaperUri(theme: LauncherThemeMode, uri: String) {
+        preferences.edit().putString(wallpaperKey(theme), uri).apply()
+    }
+
+    fun resetWallpaper(theme: LauncherThemeMode) {
+        preferences.edit().remove(wallpaperKey(theme)).apply()
     }
 
     fun exportProfile(): String = JSONObject().apply {
@@ -136,6 +143,7 @@ class LauncherPreferences(context: Context) {
         put("launcherTheme", launcherTheme().name)
         put("themeOneName", themeName(LauncherThemeMode.Theme1))
         put("themeTwoName", themeName(LauncherThemeMode.Theme2))
+        put("themeThreeName", themeName(LauncherThemeMode.Theme3))
         put("mediaWidget", mediaWidgetEnabled())
     }.toString(2)
 
@@ -167,11 +175,32 @@ class LauncherPreferences(context: Context) {
         if (profile.has("themeTwoName")) {
             setThemeName(LauncherThemeMode.Theme2, profile.optString("themeTwoName"))
         }
+        if (profile.has("themeThreeName")) {
+            setThemeName(LauncherThemeMode.Theme3, profile.optString("themeThreeName"))
+        }
         if (profile.has("mediaWidget")) {
             setMediaWidgetEnabled(profile.optBoolean("mediaWidget", false))
         }
         true
     }.getOrDefault(false)
+
+    private fun themeNameKey(theme: LauncherThemeMode): String = when (theme) {
+        LauncherThemeMode.Theme1 -> KEY_THEME_ONE_NAME
+        LauncherThemeMode.Theme2 -> KEY_THEME_TWO_NAME
+        LauncherThemeMode.Theme3 -> KEY_THEME_THREE_NAME
+    }
+
+    private fun themeDefaultName(theme: LauncherThemeMode): String = when (theme) {
+        LauncherThemeMode.Theme1 -> "Theme 1"
+        LauncherThemeMode.Theme2 -> "Theme 2"
+        LauncherThemeMode.Theme3 -> "Theme 3"
+    }
+
+    private fun wallpaperKey(theme: LauncherThemeMode): String = when (theme) {
+        LauncherThemeMode.Theme1 -> KEY_WALLPAPER_THEME_ONE
+        LauncherThemeMode.Theme2 -> KEY_WALLPAPER_THEME_TWO
+        LauncherThemeMode.Theme3 -> KEY_WALLPAPER_THEME_THREE
+    }
 
     private fun componentArray(components: List<ComponentName>) = JSONArray().apply {
         components.forEach { put(it.flattenToShortString()) }
@@ -213,8 +242,12 @@ class LauncherPreferences(context: Context) {
         const val KEY_LAUNCHER_THEME = "launcher_theme"
         const val KEY_THEME_ONE_NAME = "theme_one_name"
         const val KEY_THEME_TWO_NAME = "theme_two_name"
+        const val KEY_THEME_THREE_NAME = "theme_three_name"
         const val KEY_MEDIA_WIDGET = "media_widget_enabled"
-        const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2d"
+        const val KEY_WALLPAPER_URI_LEGACY = "wallpaper_uri_stage2d"
+        const val KEY_WALLPAPER_THEME_ONE = "wallpaper_uri_theme_one"
+        const val KEY_WALLPAPER_THEME_TWO = "wallpaper_uri_theme_two"
+        const val KEY_WALLPAPER_THEME_THREE = "wallpaper_uri_theme_three"
         const val PROFILE_VERSION = 2
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
