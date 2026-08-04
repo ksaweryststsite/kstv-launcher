@@ -360,7 +360,9 @@ private fun ThemeTwoShelf(
                 .background(Color(0x22FFFFFF)),
         )
         Spacer(Modifier.width(18.dp))
-        Column {
+        Column(
+            modifier = Modifier.offset(y = if (isThemeThree) 28.dp else 0.dp),
+        ) {
             ThemeTwoSectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -394,8 +396,8 @@ private fun ThemeTwoWatchNextCard(
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(if (isThemeThree) 164.dp else 150.dp)
-            .height(if (isThemeThree) 88.dp else 80.dp),
+            .width(if (isThemeThree) 154.dp else 150.dp)
+            .height(if (isThemeThree) 82.dp else 80.dp),
     ) {
         Box(
             modifier = Modifier
@@ -452,8 +454,8 @@ private fun ThemeTwoWatchNextEmpty(
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(if (isThemeThree) 164.dp else 150.dp)
-            .height(if (isThemeThree) 88.dp else 80.dp),
+            .width(if (isThemeThree) 154.dp else 150.dp)
+            .height(if (isThemeThree) 82.dp else 80.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
