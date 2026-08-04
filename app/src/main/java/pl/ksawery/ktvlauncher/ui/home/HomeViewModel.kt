@@ -13,6 +13,7 @@ import pl.ksawery.ktvlauncher.data.LauncherPreferences
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
@@ -30,6 +31,10 @@ class HomeViewModel(
             shelfMode = preferences.shelfMode(),
             dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
             uiScale = preferences.uiScale(),
+            launcherTheme = preferences.launcherTheme(),
+            themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
+            themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+            mediaWidgetEnabled = preferences.mediaWidgetEnabled(),
             watchNextSourcePackage = preferences.watchNextSourcePackage(),
         ),
     )
@@ -171,6 +176,20 @@ class HomeViewModel(
         _uiState.update { it.copy(uiScale = scale) }
     }
 
+    fun cycleLauncherTheme() {
+        val values = LauncherThemeMode.entries
+        val current = values.indexOf(_uiState.value.launcherTheme)
+        val theme = values[(current + 1) % values.size]
+        preferences.setLauncherTheme(theme)
+        _uiState.update { it.copy(launcherTheme = theme) }
+    }
+
+    fun toggleMediaWidget() {
+        val enabled = !_uiState.value.mediaWidgetEnabled
+        preferences.setMediaWidgetEnabled(enabled)
+        _uiState.update { it.copy(mediaWidgetEnabled = enabled) }
+    }
+
     fun cycleWatchNextSource() {
         val packages = _uiState.value.watchNextSources
             .map { it.componentName.packageName }
@@ -201,6 +220,10 @@ class HomeViewModel(
                 continueWatchingEnabled = preferences.continueWatchingEnabled(),
                 dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
                 uiScale = preferences.uiScale(),
+                launcherTheme = preferences.launcherTheme(),
+                themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
+                themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
+                mediaWidgetEnabled = preferences.mediaWidgetEnabled(),
                 watchNextSourcePackage = preferences.watchNextSourcePackage(),
             )
         }
