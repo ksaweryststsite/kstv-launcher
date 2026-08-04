@@ -1,6 +1,7 @@
 package pl.ksawery.ktvlauncher.ui.home
 
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WeatherSnapshot
@@ -23,6 +24,10 @@ data class HomeUiState(
     val continueWatchingEnabled: Boolean = true,
     val dockBackgroundEnabled: Boolean = true,
     val uiScale: UiScale = UiScale.Auto,
+    val launcherTheme: LauncherThemeMode = LauncherThemeMode.Theme1,
+    val themeOneName: String = "Theme 1",
+    val themeTwoName: String = "Theme 2",
+    val mediaWidgetEnabled: Boolean = false,
     val weather: WeatherSnapshot? = null,
     val wallpaperUri: String? = null,
 )
