@@ -615,7 +615,7 @@ private fun ThemeThreeBackground() {
         }.getOrNull()
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF070A10)),
@@ -626,13 +626,22 @@ private fun ThemeThreeBackground() {
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(maxHeight + 40.dp)
+                    .fillMaxSize()
                     .offset(y = (-40).dp),
             )
         }
     }
-}
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    0f to Color.Transparent,
+                    0.66f to Color(0x0905070A),
+                    1f to Color(0x9605070A),
+                ),
+            ),
+    )
 
 @Composable
 private fun HomeDashboard(
