@@ -45,24 +45,29 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.net.URL
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
@@ -90,25 +95,30 @@ internal fun ThemeTwoDashboard(
                 .padding(top = 26.dp, end = 34.dp),
         )
 
-        if (uiState.mediaWidgetEnabled) {
-            ThemeTwoMediaWidget(
-                uiState = uiState,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 112.dp, end = 34.dp),
-            )
-        }
+        uiState.mediaPlayback
+            ?.takeIf { uiState.mediaWidgetEnabled && it.isPlaying }
+            ?.let { playback ->
+                ActiveMediaWidget(
+                    playback = playback,
+                    appIcon = uiState.apps.firstOrNull {
+                        it.componentName.packageName == playback.packageName
+                    }?.icon,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = 146.dp, end = 34.dp),
+                )
+            }
 
         ThemeTwoGreeting(
             uiState = uiState,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.55f)
+                .offset(y = maxHeight * 0.46f)
                 .padding(start = 42.dp),
         )
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
@@ -122,6 +132,8 @@ internal fun ThemeTwoDashboard(
                 onLongClickApp = onLongClickApp,
             )
             ThemeTwoActionBar(
+                shortcuts = uiState.dockShortcuts,
+                onLaunchApp = onLaunchApp,
                 onOpenApps = onOpenApps,
                 onOpenSettings = onOpenLauncherSettings,
                 onOpenInfo = onOpenInfo,
@@ -137,21 +149,49 @@ private fun ThemeTwoTopBar(
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(horizontalAlignment = Alignment.End, modifier = modifier) {
+    var now by remember { mutableStateOf(LocalDateTime.now()) }
+    val timeFormatter = remember { DateTimeFormatter.ofPattern("HH:mm") }
+    val dateFormatter = remember {
+        DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("pl", "PL"))
+    }
+
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        while (true) {
+            now = LocalDateTime.now()
+            delay(30_000)
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
+        modifier = modifier,
+    ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             modifier = Modifier
-                .clip(RoundedCornerShape(18.dp))
+                .padding(top = 2.dp)
+                .clip(RoundedCornerShape(19.dp))
                 .background(Color(0x8F10141B))
-                .padding(horizontal = 6.dp, vertical = 4.dp),
+                .padding(horizontal = 8.dp, vertical = 5.dp),
         ) {
             ThemeTwoIconButton(Icons.Rounded.Wifi, "Sieć", onOpenWifi)
-            ThemeTwoIconButton(Icons.Rounded.Info, "Powiadomienia", onOpenNotifications)
+            ThemeTwoCounterButton(onOpenNotifications)
             ThemeTwoIconButton(Icons.Rounded.Settings, "Ustawienia", onOpenSettings)
         }
-        Spacer(Modifier.height(7.dp))
-        Text("14:09", color = KtvColors.TextPrimary, fontSize = 29.sp, fontWeight = FontWeight.SemiBold)
-        Text("Sobota, 3 maja", color = KtvColors.TextSecondary, fontSize = 11.sp)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                now.format(timeFormatter),
+                color = KtvColors.TextPrimary,
+                fontSize = 29.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                now.format(dateFormatter).replaceFirstChar(Char::uppercase),
+                color = KtvColors.TextSecondary,
+                fontSize = 11.sp,
+            )
+        }
     }
 }
 
@@ -178,48 +218,75 @@ private fun ThemeTwoIconButton(
 }
 
 @Composable
-private fun ThemeTwoMediaWidget(
-    uiState: HomeUiState,
+private fun ThemeTwoCounterButton(onClick: () -> Unit) {
+    ThemeTwoFocusable(
+        onClick = onClick,
+        shape = CircleShape,
+        modifier = Modifier.size(26.dp),
+    ) { focused ->
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .fillMaxSize()
+                .background(if (focused) Color(0x40FFFFFF) else Color.Transparent)
+                .border(1.dp, KtvColors.TextSecondary, CircleShape),
+        ) {
+            Text("11", color = KtvColors.TextPrimary, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+internal fun ActiveMediaWidget(
+    playback: MediaPlaybackInfo,
+    appIcon: ImageBitmap?,
     modifier: Modifier = Modifier,
 ) {
-    val playback = uiState.mediaPlayback
-    Column(
-        horizontalAlignment = Alignment.End,
-        modifier = modifier.width(186.dp),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        modifier = modifier.width(232.dp),
     ) {
-        Text("Odtwarzacz", color = KtvColors.TextPrimary, fontSize = 12.sp)
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xB3161D27)),
-            ) {
-                Icon(Icons.Rounded.PlayArrow, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(22.dp))
-            }
-            Spacer(Modifier.width(9.dp))
-            Column {
-                Text(
-                    playback?.title?.ifBlank { "Nieznany utwór" } ?: "Brak aktywnej sesji",
-                    color = KtvColors.TextPrimary,
-                    fontSize = 12.sp,
-                    maxLines = 1,
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(Color(0x9A111720)),
+        ) {
+            if (appIcon != null) {
+                Image(
+                    bitmap = appIcon,
+                    contentDescription = playback.packageName,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(5.dp),
                 )
-                Text(
-                    playback?.subtitle?.ifBlank { playback.packageName } ?: "Uruchom Spotify",
-                    color = KtvColors.TextSecondary,
-                    fontSize = 10.sp,
-                    maxLines = 1,
+            } else {
+                Icon(
+                    Icons.Rounded.PlayArrow,
+                    contentDescription = null,
+                    tint = KtvColors.TextPrimary,
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Icon(Icons.Rounded.PlayArrow, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(18.dp))
-            Icon(Icons.Rounded.PlayArrow, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(18.dp))
-            Icon(Icons.Rounded.PlayArrow, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(18.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                playback.title.ifBlank { "Odtwarzanie" },
+                color = KtvColors.TextPrimary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                playback.subtitle.ifBlank { playback.packageName },
+                color = KtvColors.TextSecondary,
+                fontSize = 10.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -237,7 +304,11 @@ private fun ThemeTwoGreeting(uiState: HomeUiState, modifier: Modifier = Modifier
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "${uiState.weather?.symbol ?: "☁"}  ${uiState.weather?.temperatureCelsius ?: "--"}°C  ${uiState.weather?.description ?: "Słonecznie"}",
+            listOf(
+                uiState.weather?.symbol ?: "☁",
+                (uiState.weather?.temperatureCelsius ?: "--").toString() + "°C",
+                uiState.weather?.description ?: "Słonecznie",
+            ).joinToString("  "),
             color = KtvColors.TextSecondary,
             fontSize = 12.sp,
         )
@@ -252,10 +323,10 @@ private fun ThemeTwoShelf(
     onRequestWatchNextAccess: () -> Unit,
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(34.dp)) {
+    Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
         Column {
             ThemeTwoSectionTitle("Kontynuuj oglądanie")
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (uiState.watchNext.isEmpty()) {
                     ThemeTwoWatchNextEmpty(uiState.watchNextStatus, onRequestWatchNextAccess)
@@ -274,7 +345,7 @@ private fun ThemeTwoShelf(
         }
         Column {
             ThemeTwoSectionTitle("Ulubione aplikacje")
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(11.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 uiState.favorites.take(8).forEach { app ->
                     ThemeTwoFavoriteTile(
@@ -302,10 +373,10 @@ private fun ThemeTwoWatchNextCard(
     val poster = themeTwoUriImage(item.posterUri)
     ThemeTwoFocusable(
         onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(17.dp),
         modifier = Modifier
             .width(166.dp)
-            .height(88.dp),
+            .height(92.dp),
     ) {
         Box(
             modifier = Modifier
@@ -356,10 +427,10 @@ private fun ThemeTwoWatchNextCard(
 private fun ThemeTwoWatchNextEmpty(status: WatchNextStatus, onClick: () -> Unit) {
     ThemeTwoFocusable(
         onClick = onClick,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(17.dp),
         modifier = Modifier
             .width(166.dp)
-            .height(88.dp),
+            .height(92.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -385,8 +456,8 @@ private fun ThemeTwoFavoriteTile(
     ThemeTwoFocusable(
         onClick = onClick,
         onLongClick = onLongClick,
-        shape = RoundedCornerShape(15.dp),
-        modifier = Modifier.size(60.dp),
+        shape = RoundedCornerShape(14.dp),
+        modifier = Modifier.size(58.dp),
     ) {
         Image(
             bitmap = app.icon,
@@ -394,38 +465,78 @@ private fun ThemeTwoFavoriteTile(
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(15.dp)),
+                .clip(RoundedCornerShape(14.dp)),
         )
     }
 }
 
 @Composable
 private fun ThemeTwoActionBar(
+    shortcuts: List<LaunchableApp>,
+    onLaunchApp: (LaunchableApp) -> Unit,
     onOpenApps: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenInfo: () -> Unit,
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        ThemeTwoAction("Filmy", Icons.Rounded.PlayArrow, {}, Modifier.weight(1f))
-        ThemeTwoAction("Seriale", Icons.Rounded.PlayArrow, {}, Modifier.weight(1f))
-        ThemeTwoAction("Sport", Icons.Rounded.PlayArrow, {}, Modifier.weight(1f))
-        ThemeTwoAction("Muzyka", Icons.Rounded.PlayArrow, {}, Modifier.weight(1f))
-        ThemeTwoAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
-        ThemeTwoAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
-        ThemeTwoAction("Informacje", Icons.Rounded.Info, onOpenInfo, Modifier.weight(1f))
+        ThemeTwoSystemAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
+        ThemeTwoSystemAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
+        ThemeTwoSystemAction("Informacje", Icons.Rounded.Info, onOpenInfo, Modifier.weight(1f))
+        shortcuts.take(3).forEach { app ->
+            ThemeTwoAppAction(app, { onLaunchApp(app) }, Modifier.weight(1f))
+        }
+        repeat(3 - shortcuts.take(3).size) {
+            Spacer(Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun ThemeTwoAction(
+private fun ThemeTwoSystemAction(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    ThemeTwoActionContent(
+        label = label,
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Icon(icon, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(17.dp))
+    }
+}
+
+@Composable
+private fun ThemeTwoAppAction(
+    app: LaunchableApp,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ThemeTwoActionContent(
+        label = app.label,
+        onClick = onClick,
+        modifier = modifier,
+    ) {
+        Image(
+            bitmap = app.icon,
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(21.dp),
+        )
+    }
+}
+
+@Composable
+private fun ThemeTwoActionContent(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    icon: @Composable () -> Unit,
+) {
     ThemeTwoFocusable(
         onClick = onClick,
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(8.dp),
         modifier = modifier.height(48.dp),
     ) { focused ->
         Row(
@@ -436,9 +547,15 @@ private fun ThemeTwoAction(
                 .background(if (focused) Color(0xA82B3440) else Color(0xA0111620))
                 .padding(horizontal = 10.dp),
         ) {
-            Icon(icon, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(7.dp))
-            Text(label, color = KtvColors.TextPrimary, fontSize = 12.sp, maxLines = 1)
+            icon()
+            Spacer(Modifier.width(8.dp))
+            Text(
+                label,
+                color = KtvColors.TextPrimary,
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
