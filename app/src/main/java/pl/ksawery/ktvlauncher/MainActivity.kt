@@ -100,6 +100,7 @@ class MainActivity : ComponentActivity() {
                     onOpenSettings = { openSystemSettings(Settings.ACTION_SETTINGS) },
                     onOpenWifi = { openSystemSettings(Settings.ACTION_WIFI_SETTINGS) },
                     onOpenNotifications = { openSystemSettings(ACTION_NOTIFICATION_SETTINGS) },
+                    onOpenMediaAccess = { openSystemSettings(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS) },
                     onOpenAppInfo = { app ->
                         startActivity(
                             Intent(
