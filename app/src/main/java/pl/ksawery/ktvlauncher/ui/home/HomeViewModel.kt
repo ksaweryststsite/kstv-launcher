@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import pl.ksawery.ktvlauncher.data.AppRepository
 import pl.ksawery.ktvlauncher.data.LauncherPreferences
+import pl.ksawery.ktvlauncher.data.MediaPlaybackRepository
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
@@ -22,6 +23,7 @@ class HomeViewModel(
     private val appRepository: AppRepository,
     private val weatherRepository: WeatherRepository,
     private val watchNextRepository: WatchNextRepository,
+    private val mediaPlaybackRepository: MediaPlaybackRepository,
     private val preferences: LauncherPreferences,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(
@@ -45,6 +47,7 @@ class HomeViewModel(
         refreshApps()
         refreshWeather()
         refreshWatchNext()
+        refreshMediaPlayback()
     }
 
     fun refreshApps() {
@@ -187,7 +190,25 @@ class HomeViewModel(
     fun toggleMediaWidget() {
         val enabled = !_uiState.value.mediaWidgetEnabled
         preferences.setMediaWidgetEnabled(enabled)
-        _uiState.update { it.copy(mediaWidgetEnabled = enabled) }
+        _uiState.update {
+            it.copy(
+                mediaWidgetEnabled = enabled,
+                mediaPlayback = if (enabled) it.mediaPlayback else null,
+            )
+        }
+        refreshMediaPlayback()
+    }
+
+    fun refreshMediaPlayback() {
+        if (!_uiState.value.mediaWidgetEnabled) {
+            _uiState.update { it.copy(mediaPlayback = null) }
+            return
+        }
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(mediaPlayback = mediaPlaybackRepository.currentPlayback())
+            }
+        }
     }
 
     fun cycleWatchNextSource() {
@@ -224,6 +245,7 @@ class HomeViewModel(
                 themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
                 themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
                 mediaWidgetEnabled = preferences.mediaWidgetEnabled(),
+                mediaPlayback = null,
                 watchNextSourcePackage = preferences.watchNextSourcePackage(),
             )
         }
@@ -369,6 +391,7 @@ class HomeViewModelFactory(
     private val appRepository: AppRepository,
     private val weatherRepository: WeatherRepository,
     private val watchNextRepository: WatchNextRepository,
+    private val mediaPlaybackRepository: MediaPlaybackRepository,
     private val preferences: LauncherPreferences,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -378,6 +401,7 @@ class HomeViewModelFactory(
             appRepository,
             weatherRepository,
             watchNextRepository,
+            mediaPlaybackRepository,
             preferences,
         ) as T
     }
