@@ -138,6 +138,7 @@ fun HomeRoute(
     onOpenSettings: () -> Unit,
     onOpenWifi: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenMediaAccess: () -> Unit,
     onOpenAppInfo: (LaunchableApp) -> Unit,
     onUninstallApp: (LaunchableApp) -> Unit,
     onLaunchWatchNext: (WatchNextItem) -> Unit,
@@ -154,6 +155,7 @@ fun HomeRoute(
         onOpenSystemSettings = onOpenSettings,
         onOpenWifi = onOpenWifi,
         onOpenNotifications = onOpenNotifications,
+        onOpenMediaAccess = onOpenMediaAccess,
         onOpenAppInfo = onOpenAppInfo,
         onUninstallApp = onUninstallApp,
         onLaunchWatchNext = onLaunchWatchNext,
@@ -314,6 +316,7 @@ fun HomeScreen(
                 onToggleContinueWatching = onToggleContinueWatching,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onOpenSystemSettings = onOpenSystemSettings,
+                onOpenMediaAccess = onOpenMediaAccess,
             )
 
             LauncherScreen.ThemeNames -> ThemeNamesEditor(
@@ -1222,6 +1225,7 @@ private fun LauncherSettingsScreen(
     onToggleContinueWatching: (Boolean) -> Unit,
     onRequestWatchNextAccess: () -> Unit,
     onOpenSystemSettings: () -> Unit,
+    onOpenMediaAccess: () -> Unit,
 ) {
     val firstFocusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
@@ -1331,6 +1335,13 @@ private fun LauncherSettingsScreen(
                         Icons.Rounded.PlayArrow,
                         onToggleMediaWidget,
                         trailingText = if (uiState.mediaWidgetEnabled) "Wł." else "Wył.",
+                    )
+                    SettingsSpacer()
+                    SettingRow(
+                        "Dostęp do odtwarzacza",
+                        "Włącz usługę KSTV Media w ustawieniach Androida",
+                        Icons.Rounded.Settings,
+                        onOpenMediaAccess,
                     )
                 }
                 SettingsSection.Layout -> {
