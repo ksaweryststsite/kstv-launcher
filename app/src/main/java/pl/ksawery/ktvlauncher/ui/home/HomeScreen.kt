@@ -210,7 +210,7 @@ fun HomeScreen(
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
-    onSaveThemeNames: (String, String) -> Unit,
+    onSaveThemeNames: (String, String, String) -> Unit,
     onMoveApp: (LaunchableApp, Int) -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
 ) {
@@ -256,8 +256,11 @@ fun HomeScreen(
 
         when (screen) {
             LauncherScreen.Home -> {
-                if (uiState.launcherTheme == LauncherThemeMode.Theme2) {
+                if (uiState.launcherTheme == LauncherThemeMode.Theme2 ||
+                    uiState.launcherTheme == LauncherThemeMode.Theme3
+                ) {
                     ThemeTwoDashboard(
+                        isThemeThree = uiState.launcherTheme == LauncherThemeMode.Theme3,
                         uiState = uiState,
                         onLaunchApp = onLaunchApp,
                         onOpenApps = { screen = LauncherScreen.Apps },
@@ -326,8 +329,9 @@ fun HomeScreen(
             LauncherScreen.ThemeNames -> ThemeNamesEditor(
                 themeOneName = uiState.themeOneName,
                 themeTwoName = uiState.themeTwoName,
-                onSave = { first, second ->
-                    onSaveThemeNames(first, second)
+                themeThreeName = uiState.themeThreeName,
+                onSave = { first, second, third ->
+                    onSaveThemeNames(first, second, third)
                     screen = LauncherScreen.Settings
                 },
                 onCancel = { screen = LauncherScreen.Settings },
@@ -413,11 +417,6 @@ private fun LauncherBackground(
     customWallpaperUri: String?,
     theme: LauncherThemeMode,
 ) {
-    if (theme == LauncherThemeMode.Theme2) {
-        ThemeTwoBackground()
-        return
-    }
-
     val context = LocalContext.current
     val customWallpaper by produceState<ImageBitmap?>(
         initialValue = null,
@@ -435,27 +434,44 @@ private fun LauncherBackground(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
-    } else {
-        Image(
-            painter = painterResource(R.drawable.launcher_wallpaper),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0x12000000),
+                        0.70f to Color(0x7A05070A),
+                        1f to Color(0xDD05070A),
+                    ),
+                ),
         )
+        return
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to Color(0x12000000),
-                    0.52f to Color(0x26000000),
-                    0.72f to Color(0xB9080A0E),
-                    1f to Color(0xF2080A0E),
-                ),
-            ),
-    )
+    when (theme) {
+        LauncherThemeMode.Theme1 -> {
+            Image(
+                painter = painterResource(R.drawable.launcher_wallpaper),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            0f to Color(0x12000000),
+                            0.52f to Color(0x26000000),
+                            0.72f to Color(0xB9080A0E),
+                            1f to Color(0xF2080A0E),
+                        ),
+                    ),
+            )
+        }
+        LauncherThemeMode.Theme2 -> ThemeTwoBackground()
+        LauncherThemeMode.Theme3 -> ThemeThreeBackground()
+    }
 }
 
 @Composable
@@ -570,6 +586,77 @@ private fun ThemeTwoBackground() {
                     Color(0xE805070A),
                 ),
                 startY = height * 0.62f,
+                endY = height,
+            ),
+        )
+    }
+}
+
+
+@Composable
+private fun ThemeThreeBackground() {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val width = size.width
+        val height = size.height
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(
+                    Color(0xFF05080F),
+                    Color(0xFF111A28),
+                    Color(0xFF3D4856),
+                    Color(0xFF171B22),
+                    Color(0xFF05070A),
+                ),
+                startY = 0f,
+                endY = height * 0.75f,
+            ),
+        )
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color(0x738F765B), Color(0x244D5260), Color.Transparent),
+                center = Offset(width * 0.47f, height * 0.52f),
+                radius = width * 0.62f,
+            ),
+        )
+
+        val mainRidge = Path().apply {
+            moveTo(-width * 0.03f, height * 0.40f)
+            cubicTo(width * 0.14f, height * 0.27f, width * 0.28f, height * 0.43f, width * 0.45f, height * 0.55f)
+            cubicTo(width * 0.61f, height * 0.67f, width * 0.77f, height * 0.53f, width * 1.04f, height * 0.39f)
+            lineTo(width * 1.04f, height * 0.69f)
+            lineTo(-width * 0.03f, height * 0.69f)
+            close()
+        }
+        drawPath(
+            path = mainRidge,
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF020407), Color(0xFF0A0D12)),
+                startY = height * 0.31f,
+                endY = height * 0.70f,
+            ),
+        )
+
+        val rim = Path().apply {
+            moveTo(-width * 0.03f, height * 0.40f)
+            cubicTo(width * 0.14f, height * 0.27f, width * 0.28f, height * 0.43f, width * 0.45f, height * 0.55f)
+            cubicTo(width * 0.61f, height * 0.67f, width * 0.77f, height * 0.53f, width * 1.04f, height * 0.39f)
+        }
+        drawPath(rim, Color(0x368A6439), style = Stroke(width = 38.dp.toPx()))
+        drawPath(rim, Color(0xB7E3B978), style = Stroke(width = 1.7.dp.toPx()))
+
+        val innerWave = Path().apply {
+            moveTo(width * 0.34f, height * 0.54f)
+            cubicTo(width * 0.49f, height * 0.52f, width * 0.54f, height * 0.68f, width * 0.66f, height * 0.58f)
+            cubicTo(width * 0.78f, height * 0.47f, width * 0.84f, height * 0.60f, width * 0.98f, height * 0.48f)
+        }
+        drawPath(innerWave, Color(0x306D4D2C), style = Stroke(width = 30.dp.toPx()))
+        drawPath(innerWave, Color(0x84D1A768), style = Stroke(width = 1.2.dp.toPx()))
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.Transparent, Color(0x7C05070A), Color(0xE605070A)),
+                startY = height * 0.60f,
                 endY = height,
             ),
         )
@@ -1429,10 +1516,10 @@ private fun LauncherSettingsScreen(
             Spacer(Modifier.height(18.dp))
             when (section) {
                 SettingsSection.Appearance -> {
-                    val themeLabel = if (uiState.launcherTheme == LauncherThemeMode.Theme1) {
-                        uiState.themeOneName
-                    } else {
-                        uiState.themeTwoName
+                    val themeLabel = when (uiState.launcherTheme) {
+                        LauncherThemeMode.Theme1 -> uiState.themeOneName
+                        LauncherThemeMode.Theme2 -> uiState.themeTwoName
+                        LauncherThemeMode.Theme3 -> uiState.themeThreeName
                     }
                     SettingRow(
                         "Motyw launchera",
@@ -1443,7 +1530,7 @@ private fun LauncherSettingsScreen(
                     SettingsSpacer()
                     SettingRow(
                         "Nazwy motywów",
-                        "${uiState.themeOneName} / ${uiState.themeTwoName}",
+                        "${uiState.themeOneName} / ${uiState.themeTwoName} / ${uiState.themeThreeName}",
                         Icons.Rounded.Info,
                         onEditThemeNames,
                     )
@@ -1634,20 +1721,19 @@ private fun SettingRow(
 private fun ThemeNamesEditor(
     themeOneName: String,
     themeTwoName: String,
-    onSave: (String, String) -> Unit,
+    themeThreeName: String,
+    onSave: (String, String, String) -> Unit,
     onCancel: () -> Unit,
 ) {
     var firstName by rememberSaveable { mutableStateOf(themeOneName) }
     var secondName by rememberSaveable { mutableStateOf(themeTwoName) }
+    var thirdName by rememberSaveable { mutableStateOf(themeThreeName) }
     val firstFocusRequester = remember { FocusRequester() }
     LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
     BackHandler(onBack = onCancel)
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xF0080B10))
-            .padding(horizontal = 54.dp, vertical = 34.dp),
+        modifier = Modifier.fillMaxSize().background(Color(0xF0080B10)).padding(horizontal = 54.dp, vertical = 34.dp),
     ) {
         Text("Nazwy motywów", color = KtvColors.TextPrimary, fontSize = 27.sp)
         Text("Wybierz pole, wpisz nazwę i zatwierdź Zapisz.", color = KtvColors.TextSecondary, fontSize = 12.sp)
@@ -1655,9 +1741,11 @@ private fun ThemeNamesEditor(
         ThemeNameField("Theme 1", firstName, { firstName = it }, Modifier.focusRequester(firstFocusRequester))
         Spacer(Modifier.height(16.dp))
         ThemeNameField("Theme 2", secondName, { secondName = it })
+        Spacer(Modifier.height(16.dp))
+        ThemeNameField("Theme 3", thirdName, { thirdName = it })
         Spacer(Modifier.height(28.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ContextMenuRow("Zapisz", { onSave(firstName, secondName) }, Modifier.width(180.dp))
+            ContextMenuRow("Zapisz", { onSave(firstName, secondName, thirdName) }, Modifier.width(180.dp))
             ContextMenuRow("Anuluj", onCancel, Modifier.width(180.dp))
         }
     }
