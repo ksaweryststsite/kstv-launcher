@@ -631,17 +631,6 @@ private fun ThemeThreeBackground() {
             )
         }
     }
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    0f to Color.Transparent,
-                    0.66f to Color(0x0905070A),
-                    1f to Color(0x9605070A),
-                ),
-            ),
-    )
 }
 
 @Composable
