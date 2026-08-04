@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
 
@@ -85,6 +86,32 @@ class LauncherPreferences(context: Context) {
         preferences.edit().putString(KEY_UI_SCALE, scale.name).apply()
     }
 
+    fun launcherTheme(): LauncherThemeMode = runCatching {
+        LauncherThemeMode.valueOf(preferences.getString(KEY_LAUNCHER_THEME, null).orEmpty())
+    }.getOrDefault(LauncherThemeMode.Theme1)
+
+    fun setLauncherTheme(theme: LauncherThemeMode) {
+        preferences.edit().putString(KEY_LAUNCHER_THEME, theme.name).apply()
+    }
+
+    fun themeName(theme: LauncherThemeMode): String = preferences.getString(
+        if (theme == LauncherThemeMode.Theme1) KEY_THEME_ONE_NAME else KEY_THEME_TWO_NAME,
+        if (theme == LauncherThemeMode.Theme1) "Theme 1" else "Theme 2",
+    ).orEmpty()
+
+    fun setThemeName(theme: LauncherThemeMode, name: String) {
+        val key = if (theme == LauncherThemeMode.Theme1) KEY_THEME_ONE_NAME else KEY_THEME_TWO_NAME
+        preferences.edit().putString(key, name.trim().take(24).ifBlank {
+            if (theme == LauncherThemeMode.Theme1) "Theme 1" else "Theme 2"
+        }).apply()
+    }
+
+    fun mediaWidgetEnabled(): Boolean = preferences.getBoolean(KEY_MEDIA_WIDGET, false)
+
+    fun setMediaWidgetEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean(KEY_MEDIA_WIDGET, enabled).apply()
+    }
+
     fun wallpaperUri(): String? = preferences.getString(KEY_WALLPAPER_URI, null)
 
     fun setWallpaperUri(uri: String) {
@@ -106,6 +133,10 @@ class LauncherPreferences(context: Context) {
         put("watchNextSource", watchNextSourcePackage())
         put("dockBackground", dockBackgroundEnabled())
         put("uiScale", uiScale().name)
+        put("launcherTheme", launcherTheme().name)
+        put("themeOneName", themeName(LauncherThemeMode.Theme1))
+        put("themeTwoName", themeName(LauncherThemeMode.Theme2))
+        put("mediaWidget", mediaWidgetEnabled())
     }.toString(2)
 
     fun importProfile(json: String): Boolean = runCatching {
@@ -126,6 +157,18 @@ class LauncherPreferences(context: Context) {
         }
         profile.optString("uiScale").takeIf(String::isNotBlank)?.let {
             setUiScale(UiScale.valueOf(it))
+        }
+        profile.optString("launcherTheme").takeIf(String::isNotBlank)?.let {
+            setLauncherTheme(LauncherThemeMode.valueOf(it))
+        }
+        if (profile.has("themeOneName")) {
+            setThemeName(LauncherThemeMode.Theme1, profile.optString("themeOneName"))
+        }
+        if (profile.has("themeTwoName")) {
+            setThemeName(LauncherThemeMode.Theme2, profile.optString("themeTwoName"))
+        }
+        if (profile.has("mediaWidget")) {
+            setMediaWidgetEnabled(profile.optBoolean("mediaWidget", false))
         }
         true
     }.getOrDefault(false)
@@ -167,8 +210,12 @@ class LauncherPreferences(context: Context) {
         const val KEY_WATCH_NEXT_SOURCE = "watch_next_source_package"
         const val KEY_DOCK_BACKGROUND = "dock_background_enabled"
         const val KEY_UI_SCALE = "ui_scale"
+        const val KEY_LAUNCHER_THEME = "launcher_theme"
+        const val KEY_THEME_ONE_NAME = "theme_one_name"
+        const val KEY_THEME_TWO_NAME = "theme_two_name"
+        const val KEY_MEDIA_WIDGET = "media_widget_enabled"
         const val KEY_WALLPAPER_URI = "wallpaper_uri_stage2d"
-        const val PROFILE_VERSION = 1
+        const val PROFILE_VERSION = 2
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
