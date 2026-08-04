@@ -104,8 +104,8 @@ internal fun ThemeTwoDashboard(
                         it.componentName.packageName == playback.packageName
                     }?.icon,
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = 146.dp, end = 34.dp),
+                        .align(Alignment.TopStart)
+                        .padding(top = 34.dp, start = 42.dp),
                 )
             }
 
@@ -113,7 +113,7 @@ internal fun ThemeTwoDashboard(
             uiState = uiState,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .offset(y = maxHeight * 0.46f)
+                .offset(y = maxHeight * 0.41f)
                 .padding(start = 42.dp),
         )
 
@@ -122,7 +122,7 @@ internal fun ThemeTwoDashboard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 42.dp, end = 42.dp, bottom = 28.dp),
+                .padding(start = 32.dp, end = 32.dp, bottom = 28.dp),
         ) {
             ThemeTwoShelf(
                 uiState = uiState,
@@ -323,7 +323,7 @@ private fun ThemeTwoShelf(
     onRequestWatchNextAccess: () -> Unit,
     onLongClickApp: (LaunchableApp) -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(36.dp)) {
+    Row(verticalAlignment = Alignment.Bottom) {
         Column {
             ThemeTwoSectionTitle("Kontynuuj oglądanie")
             Spacer(Modifier.height(11.dp))
@@ -343,6 +343,14 @@ private fun ThemeTwoShelf(
                 }
             }
         }
+        Spacer(Modifier.width(24.dp))
+        Box(
+            modifier = Modifier
+                .width(1.dp)
+                .height(72.dp)
+                .background(Color(0x22FFFFFF)),
+        )
+        Spacer(Modifier.width(18.dp))
         Column {
             ThemeTwoSectionTitle("Ulubione aplikacje")
             Spacer(Modifier.height(11.dp))
@@ -361,7 +369,7 @@ private fun ThemeTwoShelf(
 
 @Composable
 private fun ThemeTwoSectionTitle(value: String) {
-    Text(value, color = KtvColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    Text(value, color = KtvColors.TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Normal)
 }
 
 @Composable
@@ -375,8 +383,8 @@ private fun ThemeTwoWatchNextCard(
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(166.dp)
-            .height(92.dp),
+            .width(150.dp)
+            .height(80.dp),
     ) {
         Box(
             modifier = Modifier
@@ -429,8 +437,8 @@ private fun ThemeTwoWatchNextEmpty(status: WatchNextStatus, onClick: () -> Unit)
         onClick = onClick,
         shape = RoundedCornerShape(17.dp),
         modifier = Modifier
-            .width(166.dp)
-            .height(92.dp),
+            .width(150.dp)
+            .height(80.dp),
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -456,8 +464,8 @@ private fun ThemeTwoFavoriteTile(
     ThemeTwoFocusable(
         onClick = onClick,
         onLongClick = onLongClick,
-        shape = RoundedCornerShape(14.dp),
-        modifier = Modifier.size(58.dp),
+        shape = RoundedCornerShape(13.dp),
+        modifier = Modifier.size(48.dp),
     ) {
         Image(
             bitmap = app.icon,
@@ -465,7 +473,7 @@ private fun ThemeTwoFavoriteTile(
             contentScale = ContentScale.Fit,
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(14.dp)),
+                .clip(RoundedCornerShape(13.dp)),
         )
     }
 }
@@ -478,12 +486,12 @@ private fun ThemeTwoActionBar(
     onOpenSettings: () -> Unit,
     onOpenInfo: () -> Unit,
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        ThemeTwoSystemAction("Ustawienia", Icons.Rounded.Settings, onOpenSettings, Modifier.weight(1f))
-        ThemeTwoSystemAction("Aplikacje", Icons.Rounded.Apps, onOpenApps, Modifier.weight(1f))
-        ThemeTwoSystemAction("Informacje", Icons.Rounded.Info, onOpenInfo, Modifier.weight(1f))
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        ThemeTwoTextAction("Ustawienia", onOpenSettings, Modifier.weight(1f))
+        ThemeTwoTextAction("Aplikacje", onOpenApps, Modifier.weight(1f))
+        ThemeTwoTextAction("Informacje", onOpenInfo, Modifier.weight(1f))
         shortcuts.take(3).forEach { app ->
-            ThemeTwoAppAction(app, { onLaunchApp(app) }, Modifier.weight(1f))
+            ThemeTwoTextAction(app.label, { onLaunchApp(app) }, Modifier.weight(1f))
         }
         repeat(3 - shortcuts.take(3).size) {
             Spacer(Modifier.weight(1f))
@@ -492,67 +500,40 @@ private fun ThemeTwoActionBar(
 }
 
 @Composable
-private fun ThemeTwoSystemAction(
+private fun ThemeTwoTextAction(
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ThemeTwoActionContent(
-        label = label,
-        onClick = onClick,
-        modifier = modifier,
-    ) {
-        Icon(icon, null, tint = KtvColors.TextPrimary, modifier = Modifier.size(17.dp))
-    }
-}
-
-@Composable
-private fun ThemeTwoAppAction(
-    app: LaunchableApp,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    ThemeTwoActionContent(
-        label = app.label,
-        onClick = onClick,
-        modifier = modifier,
-    ) {
-        Image(
-            bitmap = app.icon,
-            contentDescription = null,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(21.dp),
-        )
-    }
-}
-
-@Composable
-private fun ThemeTwoActionContent(
-    label: String,
-    onClick: () -> Unit,
-    modifier: Modifier,
-    icon: @Composable () -> Unit,
-) {
+    val shape = RoundedCornerShape(12.dp)
     ThemeTwoFocusable(
         onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        modifier = modifier.height(48.dp),
+        shape = shape,
+        modifier = modifier.height(52.dp),
     ) { focused ->
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
+        Box(
+            contentAlignment = Alignment.Center,
             modifier = Modifier
                 .fillMaxSize()
-                .background(if (focused) Color(0xA82B3440) else Color(0xA0111620))
-                .padding(horizontal = 10.dp),
+                .background(
+                    if (focused) {
+                        Color(0xC0242B35)
+                    } else {
+                        Color(0xA7080C12)
+                    },
+                    shape,
+                )
+                .border(
+                    1.dp,
+                    if (focused) Color(0x90F6F8FB) else Color(0x24FFFFFF),
+                    shape,
+                )
+                .padding(horizontal = 12.dp),
         ) {
-            icon()
-            Spacer(Modifier.width(8.dp))
             Text(
                 label,
                 color = KtvColors.TextPrimary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
