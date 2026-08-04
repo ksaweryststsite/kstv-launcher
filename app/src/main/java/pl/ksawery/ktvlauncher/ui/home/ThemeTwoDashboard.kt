@@ -123,7 +123,11 @@ internal fun ThemeTwoDashboard(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
-                .padding(start = 32.dp, end = 32.dp, bottom = 28.dp),
+                .padding(
+                    start = 32.dp,
+                    end = 32.dp,
+                    bottom = if (isThemeThree) 16.dp else 28.dp,
+                ),
         ) {
             ThemeTwoShelf(
                 uiState = uiState,
@@ -519,7 +523,7 @@ private fun ThemeTwoTextAction(
     isThemeThree: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val shape = RoundedCornerShape(if (isThemeThree) 10.dp else 12.dp)
+    val shape = RoundedCornerShape(if (isThemeThree) 8.dp else 12.dp)
     ThemeTwoFocusable(
         onClick = onClick,
         shape = shape,
@@ -533,7 +537,7 @@ private fun ThemeTwoTextAction(
                     if (focused) {
                         Color(0xC0242B35)
                     } else if (isThemeThree) {
-                        Color(0xA9121820)
+                        Color(0x86121820)
                     } else {
                         Color(0xA7080C12)
                     },
@@ -541,7 +545,7 @@ private fun ThemeTwoTextAction(
                 )
                 .border(
                     1.dp,
-                    if (focused) Color(0x90F6F8FB) else Color(0x24FFFFFF),
+                    if (focused) Color(0x90F6F8FB) else if (isThemeThree) Color(0x14FFFFFF) else Color(0x24FFFFFF),
                     shape,
                 )
                 .padding(horizontal = 12.dp),
