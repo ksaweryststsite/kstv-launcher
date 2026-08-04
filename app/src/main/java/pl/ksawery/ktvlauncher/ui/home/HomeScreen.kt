@@ -191,6 +191,7 @@ fun HomeScreen(
     onOpenSystemSettings: () -> Unit,
     onOpenWifi: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenMediaAccess: () -> Unit,
     onOpenAppInfo: (LaunchableApp) -> Unit,
     onUninstallApp: (LaunchableApp) -> Unit,
     onLaunchWatchNext: (WatchNextItem) -> Unit,
