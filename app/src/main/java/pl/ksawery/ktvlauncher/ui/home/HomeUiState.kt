@@ -2,6 +2,7 @@ package pl.ksawery.ktvlauncher.ui.home
 
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
+import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WeatherSnapshot
@@ -28,6 +29,7 @@ data class HomeUiState(
     val themeOneName: String = "Theme 1",
     val themeTwoName: String = "Theme 2",
     val mediaWidgetEnabled: Boolean = false,
+    val mediaPlayback: MediaPlaybackInfo? = null,
     val weather: WeatherSnapshot? = null,
     val wallpaperUri: String? = null,
 )
