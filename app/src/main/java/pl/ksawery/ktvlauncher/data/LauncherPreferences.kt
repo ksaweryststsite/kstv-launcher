@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
 import pl.ksawery.ktvlauncher.model.UiScale
@@ -52,6 +53,14 @@ class LauncherPreferences(context: Context) {
 
     fun setShelfMode(mode: ShelfMode) {
         preferences.edit().putString(KEY_SHELF_MODE, mode.name).apply()
+    }
+
+    fun homeFocusMode(): HomeFocusMode = runCatching {
+        HomeFocusMode.valueOf(preferences.getString(KEY_HOME_FOCUS_MODE, null).orEmpty())
+    }.getOrDefault(HomeFocusMode.KeepCurrent)
+
+    fun setHomeFocusMode(mode: HomeFocusMode) {
+        preferences.edit().putString(KEY_HOME_FOCUS_MODE, mode.name).apply()
     }
 
     fun continueWatchingEnabled(): Boolean =
@@ -136,6 +145,7 @@ class LauncherPreferences(context: Context) {
         put("featured", componentArray(featuredComponents()))
         put("appOrder", componentArray(appOrderComponents()))
         put("shelfMode", shelfMode().name)
+        put("homeFocusMode", homeFocusMode().name)
         put("continueWatching", continueWatchingEnabled())
         put("watchNextSource", watchNextSourcePackage())
         put("dockBackground", dockBackgroundEnabled())
@@ -155,6 +165,9 @@ class LauncherPreferences(context: Context) {
         setAppOrderComponents(profile.componentList("appOrder"))
         profile.optString("shelfMode").takeIf(String::isNotBlank)?.let {
             setShelfMode(ShelfMode.valueOf(it))
+        }
+        profile.optString("homeFocusMode").takeIf(String::isNotBlank)?.let {
+            setHomeFocusMode(HomeFocusMode.valueOf(it))
         }
         if (profile.has("continueWatching")) {
             setContinueWatchingEnabled(profile.optBoolean("continueWatching", true))
@@ -235,6 +248,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_FEATURED = "featured_components"
         const val KEY_APP_ORDER = "app_order_components"
         const val KEY_SHELF_MODE = "shelf_mode"
+        const val KEY_HOME_FOCUS_MODE = "home_focus_mode"
         const val KEY_CONTINUE_WATCHING = "continue_watching_enabled"
         const val KEY_WATCH_NEXT_SOURCE = "watch_next_source_package"
         const val KEY_DOCK_BACKGROUND = "dock_background_enabled"
@@ -248,7 +262,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_WALLPAPER_THEME_ONE = "wallpaper_uri_theme_one"
         const val KEY_WALLPAPER_THEME_TWO = "wallpaper_uri_theme_two"
         const val KEY_WALLPAPER_THEME_THREE = "wallpaper_uri_theme_three"
-        const val PROFILE_VERSION = 2
+        const val PROFILE_VERSION = 3
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
