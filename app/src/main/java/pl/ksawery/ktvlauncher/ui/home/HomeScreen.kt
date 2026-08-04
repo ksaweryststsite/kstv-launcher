@@ -12,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
@@ -82,6 +83,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -114,6 +116,7 @@ private enum class LauncherScreen {
     Favorites,
     DockPicker,
     FeaturedPicker,
+    ThemeNames,
 }
 
 private enum class SettingsSection {
@@ -166,6 +169,7 @@ fun HomeRoute(
         onCycleWatchNextSource = viewModel::cycleWatchNextSource,
         onCycleLauncherTheme = viewModel::cycleLauncherTheme,
         onToggleMediaWidget = viewModel::toggleMediaWidget,
+        onSaveThemeNames = viewModel::setThemeNames,
         onMoveApp = viewModel::moveApp,
         onToggleContinueWatching = { enabled ->
             viewModel.setContinueWatchingEnabled(enabled)
@@ -200,6 +204,7 @@ fun HomeScreen(
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
+    onSaveThemeNames: (String, String) -> Unit,
     onMoveApp: (LaunchableApp, Int) -> Unit,
     onToggleContinueWatching: (Boolean) -> Unit,
 ) {
@@ -232,7 +237,8 @@ fun HomeScreen(
             showInfo -> showInfo = false
             screen == LauncherScreen.Favorites ||
                 screen == LauncherScreen.DockPicker ||
-                screen == LauncherScreen.FeaturedPicker -> {
+                screen == LauncherScreen.FeaturedPicker ||
+                screen == LauncherScreen.ThemeNames -> {
                 screen = LauncherScreen.Settings
             }
             screen != LauncherScreen.Home -> screen = LauncherScreen.Home
@@ -290,6 +296,7 @@ fun HomeScreen(
                 onImportProfile = onImportProfile,
                 onOpenAllApps = { screen = LauncherScreen.Apps },
                 onEditFavorites = { screen = LauncherScreen.Favorites },
+                onEditThemeNames = { screen = LauncherScreen.ThemeNames },
                 onPickDockShortcut = { slot ->
                     dockPickerSlot = slot
                     screen = LauncherScreen.DockPicker
@@ -307,6 +314,16 @@ fun HomeScreen(
                 onToggleContinueWatching = onToggleContinueWatching,
                 onRequestWatchNextAccess = onRequestWatchNextAccess,
                 onOpenSystemSettings = onOpenSystemSettings,
+            )
+
+            LauncherScreen.ThemeNames -> ThemeNamesEditor(
+                themeOneName = uiState.themeOneName,
+                themeTwoName = uiState.themeTwoName,
+                onSave = { first, second ->
+                    onSaveThemeNames(first, second)
+                    screen = LauncherScreen.Settings
+                },
+                onCancel = { screen = LauncherScreen.Settings },
             )
 
             LauncherScreen.Favorites -> FavoritesEditor(
@@ -1179,6 +1196,7 @@ private fun LauncherSettingsScreen(
     onImportProfile: () -> Unit,
     onOpenAllApps: () -> Unit,
     onEditFavorites: () -> Unit,
+    onEditThemeNames: () -> Unit,
     onPickDockShortcut: (Int) -> Unit,
     onPickFeaturedApp: (Int) -> Unit,
     onCycleShelfMode: () -> Unit,
@@ -1280,6 +1298,13 @@ private fun LauncherSettingsScreen(
                         "$themeLabel · OK, aby przełączyć",
                         Icons.Rounded.Wallpaper,
                         onCycleLauncherTheme,
+                    )
+                    SettingsSpacer()
+                    SettingRow(
+                        "Nazwy motywów",
+                        "${uiState.themeOneName} / ${uiState.themeTwoName}",
+                        Icons.Rounded.Info,
+                        onEditThemeNames,
                     )
                     SettingsSpacer()
                     SettingRow("Wybierz tapetę", "Obraz z pamięci urządzenia", Icons.Rounded.Wallpaper, onPickWallpaper)
@@ -1453,6 +1478,72 @@ private fun SettingRow(
                 Text(it, color = KtvColors.Accent, fontSize = 12.sp)
             }
         }
+    }
+}
+
+
+@Composable
+private fun ThemeNamesEditor(
+    themeOneName: String,
+    themeTwoName: String,
+    onSave: (String, String) -> Unit,
+    onCancel: () -> Unit,
+) {
+    var firstName by rememberSaveable { mutableStateOf(themeOneName) }
+    var secondName by rememberSaveable { mutableStateOf(themeTwoName) }
+    val firstFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { firstFocusRequester.requestFocus() }
+    BackHandler(onBack = onCancel)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xF0080B10))
+            .padding(horizontal = 54.dp, vertical = 34.dp),
+    ) {
+        Text("Nazwy motywów", color = KtvColors.TextPrimary, fontSize = 27.sp)
+        Text("Wybierz pole, wpisz nazwę i zatwierdź Zapisz.", color = KtvColors.TextSecondary, fontSize = 12.sp)
+        Spacer(Modifier.height(28.dp))
+        ThemeNameField("Theme 1", firstName, { firstName = it }, Modifier.focusRequester(firstFocusRequester))
+        Spacer(Modifier.height(16.dp))
+        ThemeNameField("Theme 2", secondName, { secondName = it })
+        Spacer(Modifier.height(28.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ContextMenuRow("Zapisz", { onSave(firstName, secondName) }, Modifier.width(180.dp))
+            ContextMenuRow("Anuluj", onCancel, Modifier.width(180.dp))
+        }
+    }
+}
+
+@Composable
+private fun ThemeNameField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .width(420.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .border(
+                if (focused) 2.dp else 1.dp,
+                if (focused) Color(0xFFF6F8FB) else Color(0x3AFFFFFF),
+                RoundedCornerShape(10.dp),
+            )
+            .background(Color(0x8C141A22), RoundedCornerShape(10.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+    ) {
+        Text(label, color = KtvColors.TextSecondary, fontSize = 11.sp)
+        Spacer(Modifier.height(5.dp))
+        BasicTextField(
+            value = value,
+            onValueChange = { onValueChange(it.take(24)) },
+            singleLine = true,
+            textStyle = TextStyle(color = KtvColors.TextPrimary, fontSize = 18.sp),
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
