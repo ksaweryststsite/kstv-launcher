@@ -645,6 +645,7 @@ private fun ThemeThreeBackground() {
                 ),
             ),
     )
+}
 
 @Composable
 private fun HomeDashboard(
