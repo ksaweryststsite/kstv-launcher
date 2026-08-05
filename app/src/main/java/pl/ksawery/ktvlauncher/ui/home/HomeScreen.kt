@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -606,31 +605,37 @@ private fun ThemeTwoBackground() {
 private fun ThemeThreeBackground() {
     val context = LocalContext.current
     val wallpaper = remember(context) {
-        runCatching {
-            context.assets.open("theme3_wallpaper.b64").bufferedReader().use { encoded ->
-                val decoded = Base64.decode(encoded.readText(), Base64.DEFAULT)
-                ByteArrayInputStream(decoded).use {
-                    BitmapFactory.decodeStream(it)?.asImageBitmap()
-                }
-            }
-        }.getOrNull()
+        decodeEmbeddedWallpaper(context, "theme3_wallpaper.b64")
+    }
+    val bottomExtension = remember(context) {
+        decodeEmbeddedWallpaper(context, "theme3_wallpaper_bottom.b64")
     }
 
-    BoxWithConstraints(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xFF070A10)),
     ) {
-        if (wallpaper != null) {
+        wallpaper?.let { image ->
             Image(
-                bitmap = wallpaper,
+                bitmap = image,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .requiredHeight(maxHeight + 40.dp)
+                    .fillMaxSize()
                     .offset(y = (-40).dp),
             )
+            bottomExtension?.let { extension ->
+                Image(
+                    bitmap = extension,
+                    contentDescription = null,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(40.dp),
+                )
+            }
         }
     }
     Box(
@@ -645,6 +650,15 @@ private fun ThemeThreeBackground() {
             ),
     )
 }
+
+private fun decodeEmbeddedWallpaper(context: Context, assetName: String): ImageBitmap? = runCatching {
+    context.assets.open(assetName).bufferedReader().use { encoded ->
+        val decoded = Base64.decode(encoded.readText(), Base64.DEFAULT)
+        ByteArrayInputStream(decoded).use {
+            BitmapFactory.decodeStream(it)?.asImageBitmap()
+        }
+    }
+}.getOrNull()
 
 @Composable
 private fun HomeDashboard(
