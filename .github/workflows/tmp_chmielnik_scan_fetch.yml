@@ -54,7 +54,7 @@ jobs:
               'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.7',
           })
 
-          def get(url: str, *, referer: str | None = None, binary: bool = False):
+          def get(url: str, *, referer: str | None = None):
               headers = {'Referer': referer} if referer else {}
               last = None
               for attempt in range(6):
@@ -72,6 +72,29 @@ jobs:
                       time.sleep(min(30, 3 * (attempt + 1)))
               raise RuntimeError(f'GET failed {url}: {last}')
 
+          def allow_display(detail_url: str, name: str):
+              endpoint = 'https://metryki.genbaza.pl/photo/allow-display'
+              headers = {
+                  'Referer': detail_url,
+                  'X-Requested-With': 'XMLHttpRequest',
+                  'Accept': 'application/json, text/javascript, */*; q=0.01',
+              }
+              last = None
+              for attempt in range(6):
+                  try:
+                      r = session.post(endpoint, data={'directory_id': '391780', 'fileName': name}, headers=headers, timeout=(15, 60))
+                      last = (r.status_code, r.text[:200])
+                      if r.status_code == 200 and r.text.strip().lower() in ('true', '1', '"true"'):
+                          return True, last
+                      if r.status_code in (403, 429, 500, 502, 503, 504):
+                          time.sleep(min(30, 3 * (attempt + 1)))
+                          continue
+                      return False, last
+                  except Exception as exc:
+                      last = repr(exc)
+                      time.sleep(min(30, 3 * (attempt + 1)))
+              return False, last
+
           album = get(ALBUM)
           DIAG.joinpath('album.html').write_bytes(album.content)
           soup = BeautifulSoup(album.text, 'html.parser')
@@ -81,8 +104,6 @@ jobs:
               key = label.lower()
               if key in expected_lc:
                   detail_by_name[expected_lc[key]] = urljoin(ALBUM, a['href'])
-
-          # Fallback: correlate hrefs with filenames in raw HTML.
           if len(detail_by_name) < 52:
               for name in expected:
                   if name in detail_by_name:
@@ -100,7 +121,7 @@ jobs:
           for pos, name in enumerate(expected, 1):
               detail_url = detail_by_name.get(name)
               if not detail_url:
-                  rows.append((name, 'FAIL_NO_DETAIL', 0, 0, 0, '', ''))
+                  rows.append((name, 'FAIL_NO_DETAIL', 0, 0, 0, '', '', ''))
                   print(f'[{pos:02d}/52] FAIL_NO_DETAIL {name}')
                   continue
               try:
@@ -112,20 +133,25 @@ jobs:
                   for tag in dsoup.find_all(True):
                       for attr in ('href', 'src'):
                           val = tag.get(attr)
-                          if val and '/photo/' in val:
+                          if val and '/photo/' in val and '/photo/request-link' not in val and '/photo/download' not in val and '/photo/allow-display' not in val:
                               candidates.append(urljoin(detail.url, val))
-                  # Regex fallback for protocol-relative or escaped links.
                   for val in re.findall(r'(?:https?:)?//[^\s"\'<>]+/photo/[^\s"\'<>]+', detail.text, flags=re.I):
+                      if any(x in val for x in ('/photo/request-link', '/photo/download', '/photo/allow-display')):
+                          continue
                       candidates.append(('https:' + val) if val.startswith('//') else val)
-                  # Prefer URL ending in the expected filename.
                   candidates = list(dict.fromkeys(candidates))
                   image_url = next((u for u in candidates if name.lower() in u.lower()), candidates[0] if candidates else '')
                   if not image_url:
-                      rows.append((name, 'FAIL_NO_IMAGE_URL', 0, 0, 0, detail_url, ''))
+                      rows.append((name, 'FAIL_NO_IMAGE_URL', 0, 0, 0, detail_url, '', ''))
                       print(f'[{pos:02d}/52] FAIL_NO_IMAGE_URL {name}')
                       continue
 
-                  image = get(image_url, referer=detail_url, binary=True)
+                  allowed, allow_info = allow_display(detail_url, name)
+                  if not allowed:
+                      rows.append((name, 'FAIL_ALLOW_DISPLAY', 0, 0, 0, detail_url, image_url, repr(allow_info)))
+                      print(f'[{pos:02d}/52] FAIL_ALLOW_DISPLAY {name}: {allow_info!r}')
+                      continue
+                  image = get(image_url, referer=detail_url)
                   data = image.content
                   width = height = 0
                   valid = False
@@ -136,15 +162,15 @@ jobs:
                   except Exception:
                       valid = False
                   if not valid:
-                      rows.append((name, 'FAIL_BAD_IMAGE', len(data), width, height, detail_url, image_url))
+                      rows.append((name, 'FAIL_BAD_IMAGE', len(data), width, height, detail_url, image_url, repr(allow_info)))
                       print(f'[{pos:02d}/52] FAIL_BAD_IMAGE {name} {len(data)} {width}x{height}')
                       continue
                   OUT.joinpath(name).write_bytes(data)
-                  rows.append((name, 'OK', len(data), width, height, detail_url, image_url))
+                  rows.append((name, 'OK', len(data), width, height, detail_url, image_url, repr(allow_info)))
                   print(f'[{pos:02d}/52] OK {name} {len(data)} {width}x{height}')
-                  time.sleep(0.7)
+                  time.sleep(0.6)
               except Exception as exc:
-                  rows.append((name, 'FAIL_EXCEPTION', 0, 0, 0, detail_url, repr(exc)))
+                  rows.append((name, 'FAIL_EXCEPTION', 0, 0, 0, detail_url, '', repr(exc)))
                   print(f'[{pos:02d}/52] FAIL_EXCEPTION {name}: {exc!r}')
 
           manifest = '\n'.join('\t'.join(map(str, row)) for row in rows) + '\n'
