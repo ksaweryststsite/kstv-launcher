@@ -13,11 +13,15 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: tmp-chmielnik-1918-scan-fetch
+  cancel-in-progress: true
+
 jobs:
   fetch-scans:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,45 +30,60 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          rm -rf scans
           mkdir -p scans
           python3 - <<'PY'
-          import pathlib, time, requests
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+          import pathlib, requests, time
 
           out = pathlib.Path('scans')
           names = [f'_{i:03d}_index.JPG' for i in range(1, 5)] + [f'_{i:03d}_ur.JPG' for i in range(5, 53)]
-          session = requests.Session()
-          session.headers.update({
+          headers = {
               'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
               'Referer': 'https://metryki.genbaza.pl/genbaza,list,391780,1',
               'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          })
-          manifest = []
-          for idx, name in enumerate(names, 1):
-              url = f'https://metryki.genbaza.pl/photo/202604/391780/{name}'
-              last = None
-              for attempt in range(4):
+          }
+
+          def get_one(name):
+              origin = f'metryki.genbaza.pl/photo/202604/391780/{name}'
+              urls = [
+                  f'https://{origin}',
+                  f'https://wsrv.nl/?url={origin}&output=jpg&q=96',
+                  f'https://images.weserv.nl/?url={origin}&output=jpg&q=96',
+              ]
+              attempts = []
+              for url in urls:
                   try:
-                      r = session.get(url, timeout=60)
-                      last = (r.status_code, r.headers.get('content-type',''), len(r.content))
-                      if r.status_code == 200 and len(r.content) > 10000 and r.content[:2] == b'\xff\xd8':
-                          (out / name).write_bytes(r.content)
-                          manifest.append(f'{name}\tOK\t{len(r.content)}\t{url}')
-                          print(f'[{idx:02d}/52] OK {name} {len(r.content)} bytes')
-                          break
+                      r = requests.get(url, headers=headers, timeout=(10, 35), allow_redirects=True)
+                      attempts.append((url, r.status_code, r.headers.get('content-type',''), len(r.content)))
+                      data = r.content
+                      if r.status_code == 200 and len(data) > 10000 and data[:2] == b'\xff\xd8':
+                          (out / name).write_bytes(data)
+                          return name, True, len(data), url, attempts
                   except Exception as e:
-                      last = repr(e)
-                  time.sleep(2 + attempt * 2)
-              else:
-                  manifest.append(f'{name}\tFAIL\t{last}\t{url}')
-                  print(f'[{idx:02d}/52] FAIL {name}: {last}')
-              time.sleep(0.4)
-          (out / 'manifest.tsv').write_text('\n'.join(manifest) + '\n', encoding='utf-8')
-          ok = sum('\tOK\t' in x for x in manifest)
-          print(f'Downloaded {ok}/52 images')
-          if ok == 0:
-              raise SystemExit('No images downloaded')
+                      attempts.append((url, 'ERR', repr(e), 0))
+              return name, False, 0, '', attempts
+
+          rows = []
+          with ThreadPoolExecutor(max_workers=8) as pool:
+              futures = {pool.submit(get_one, n): n for n in names}
+              done = 0
+              for fut in as_completed(futures):
+                  name, ok, size, url, attempts = fut.result()
+                  done += 1
+                  print(f'[{done:02d}/52] {"OK" if ok else "FAIL"} {name} {size}')
+                  rows.append((name, ok, size, url, attempts))
+
+          rows.sort()
+          lines = []
+          for name, ok, size, url, attempts in rows:
+              lines.append(f'{name}\t{"OK" if ok else "FAIL"}\t{size}\t{url}\t{attempts!r}')
+          (out / 'manifest.tsv').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          ok_count = sum(ok for _, ok, *_ in rows)
+          (out / 'summary.txt').write_text(f'{ok_count}/52\n', encoding='utf-8')
+          print(f'Downloaded {ok_count}/52 images')
           PY
-      - name: Upload scans
+      - name: Upload scans and diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: chmielnik-1918-birth-scans
@@ -72,15 +91,18 @@ jobs:
           if-no-files-found: error
           retention-days: 1
       - name: Publish temporary run metadata
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           TARGET_BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           mkdir -p .tmp_chmielnik_fetch_results
           printf '%s\n' "${GITHUB_RUN_ID}" > .tmp_chmielnik_fetch_results/run_id.txt
-          cp scans/manifest.tsv .tmp_chmielnik_fetch_results/manifest.tsv
+          cp scans/manifest.tsv .tmp_chmielnik_fetch_results/manifest.tsv || true
+          cp scans/summary.txt .tmp_chmielnik_fetch_results/summary.txt || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .tmp_chmielnik_fetch_results
+          if git diff --cached --quiet; then exit 0; fi
           git commit -m 'Temporary scan fetch results [skip ci]'
           git push origin HEAD:"${TARGET_BRANCH}"
