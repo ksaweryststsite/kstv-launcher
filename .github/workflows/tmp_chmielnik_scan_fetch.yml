@@ -21,73 +21,145 @@ jobs:
   fetch-scans:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
-      - name: Download 52 public scan images
+      - name: Install parser dependencies
+        run: python3 -m pip install --quiet beautifulsoup4 pillow
+      - name: Resolve album links and download all 52 public scans
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf scans
-          mkdir -p scans
+          rm -rf scans diagnostics
+          mkdir -p scans diagnostics
           python3 - <<'PY'
-          from concurrent.futures import ThreadPoolExecutor, as_completed
-          import pathlib, requests, time
+          from __future__ import annotations
+          import io, pathlib, re, time
+          from urllib.parse import urljoin
+          import requests
+          from bs4 import BeautifulSoup
+          from PIL import Image
 
-          out = pathlib.Path('scans')
-          names = [f'_{i:03d}_index.JPG' for i in range(1, 5)] + [f'_{i:03d}_ur.JPG' for i in range(5, 53)]
-          headers = {
+          ALBUM = 'https://metryki.genbaza.pl/genbaza,list,391780,1'
+          OUT = pathlib.Path('scans')
+          DIAG = pathlib.Path('diagnostics')
+          expected = [f'_{i:03d}_index.JPG' for i in range(1, 5)] + [f'_{i:03d}_ur.JPG' for i in range(5, 53)]
+          expected_lc = {x.lower(): x for x in expected}
+
+          session = requests.Session()
+          session.headers.update({
               'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
-              'Referer': 'https://metryki.genbaza.pl/genbaza,list,391780,1',
-              'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-          }
+              'Accept-Language': 'pl-PL,pl;q=0.9,en;q=0.7',
+          })
 
-          def get_one(name):
-              origin = f'metryki.genbaza.pl/photo/202604/391780/{name}'
-              urls = [
-                  f'https://{origin}',
-                  f'https://wsrv.nl/?url={origin}&output=jpg&q=96',
-                  f'https://images.weserv.nl/?url={origin}&output=jpg&q=96',
-              ]
-              attempts = []
-              for url in urls:
+          def get(url: str, *, referer: str | None = None, binary: bool = False):
+              headers = {'Referer': referer} if referer else {}
+              last = None
+              for attempt in range(6):
                   try:
-                      r = requests.get(url, headers=headers, timeout=(10, 35), allow_redirects=True)
-                      attempts.append((url, r.status_code, r.headers.get('content-type',''), len(r.content)))
-                      data = r.content
-                      if r.status_code == 200 and len(data) > 10000 and data[:2] == b'\xff\xd8':
-                          (out / name).write_bytes(data)
-                          return name, True, len(data), url, attempts
-                  except Exception as e:
-                      attempts.append((url, 'ERR', repr(e), 0))
-              return name, False, 0, '', attempts
+                      r = session.get(url, headers=headers, timeout=(15, 90), allow_redirects=True)
+                      last = (r.status_code, r.headers.get('content-type',''), len(r.content), r.url)
+                      if r.status_code == 200:
+                          return r
+                      if r.status_code in (403, 429, 500, 502, 503, 504):
+                          time.sleep(min(30, 3 * (attempt + 1)))
+                          continue
+                      return r
+                  except Exception as exc:
+                      last = repr(exc)
+                      time.sleep(min(30, 3 * (attempt + 1)))
+              raise RuntimeError(f'GET failed {url}: {last}')
+
+          album = get(ALBUM)
+          DIAG.joinpath('album.html').write_bytes(album.content)
+          soup = BeautifulSoup(album.text, 'html.parser')
+          detail_by_name: dict[str, str] = {}
+          for a in soup.find_all('a', href=True):
+              label = a.get_text(' ', strip=True)
+              key = label.lower()
+              if key in expected_lc:
+                  detail_by_name[expected_lc[key]] = urljoin(ALBUM, a['href'])
+
+          # Fallback: correlate hrefs with filenames in raw HTML.
+          if len(detail_by_name) < 52:
+              for name in expected:
+                  if name in detail_by_name:
+                      continue
+                  pat = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>\s*' + re.escape(name) + r'\s*</a>', re.I)
+                  m = pat.search(album.text)
+                  if m:
+                      detail_by_name[name] = urljoin(ALBUM, m.group(1))
+
+          DIAG.joinpath('resolved_detail_links.tsv').write_text(
+              '\n'.join(f'{n}\t{detail_by_name.get(n, "")}' for n in expected) + '\n', encoding='utf-8')
+          print(f'Resolved {len(detail_by_name)}/52 detail links')
 
           rows = []
-          with ThreadPoolExecutor(max_workers=8) as pool:
-              futures = {pool.submit(get_one, n): n for n in names}
-              done = 0
-              for fut in as_completed(futures):
-                  name, ok, size, url, attempts = fut.result()
-                  done += 1
-                  print(f'[{done:02d}/52] {"OK" if ok else "FAIL"} {name} {size}')
-                  rows.append((name, ok, size, url, attempts))
+          for pos, name in enumerate(expected, 1):
+              detail_url = detail_by_name.get(name)
+              if not detail_url:
+                  rows.append((name, 'FAIL_NO_DETAIL', 0, 0, 0, '', ''))
+                  print(f'[{pos:02d}/52] FAIL_NO_DETAIL {name}')
+                  continue
+              try:
+                  detail = get(detail_url, referer=ALBUM)
+                  if pos <= 4:
+                      DIAG.joinpath(f'detail_{pos:03d}.html').write_bytes(detail.content)
+                  dsoup = BeautifulSoup(detail.text, 'html.parser')
+                  candidates = []
+                  for tag in dsoup.find_all(True):
+                      for attr in ('href', 'src'):
+                          val = tag.get(attr)
+                          if val and '/photo/' in val:
+                              candidates.append(urljoin(detail.url, val))
+                  # Regex fallback for protocol-relative or escaped links.
+                  for val in re.findall(r'(?:https?:)?//[^\s"\'<>]+/photo/[^\s"\'<>]+', detail.text, flags=re.I):
+                      candidates.append(('https:' + val) if val.startswith('//') else val)
+                  # Prefer URL ending in the expected filename.
+                  candidates = list(dict.fromkeys(candidates))
+                  image_url = next((u for u in candidates if name.lower() in u.lower()), candidates[0] if candidates else '')
+                  if not image_url:
+                      rows.append((name, 'FAIL_NO_IMAGE_URL', 0, 0, 0, detail_url, ''))
+                      print(f'[{pos:02d}/52] FAIL_NO_IMAGE_URL {name}')
+                      continue
 
-          rows.sort()
-          lines = []
-          for name, ok, size, url, attempts in rows:
-              lines.append(f'{name}\t{"OK" if ok else "FAIL"}\t{size}\t{url}\t{attempts!r}')
-          (out / 'manifest.tsv').write_text('\n'.join(lines) + '\n', encoding='utf-8')
-          ok_count = sum(ok for _, ok, *_ in rows)
-          (out / 'summary.txt').write_text(f'{ok_count}/52\n', encoding='utf-8')
-          print(f'Downloaded {ok_count}/52 images')
+                  image = get(image_url, referer=detail_url, binary=True)
+                  data = image.content
+                  width = height = 0
+                  valid = False
+                  try:
+                      with Image.open(io.BytesIO(data)) as im:
+                          width, height = im.size
+                          valid = width >= 1200 and height >= 1200
+                  except Exception:
+                      valid = False
+                  if not valid:
+                      rows.append((name, 'FAIL_BAD_IMAGE', len(data), width, height, detail_url, image_url))
+                      print(f'[{pos:02d}/52] FAIL_BAD_IMAGE {name} {len(data)} {width}x{height}')
+                      continue
+                  OUT.joinpath(name).write_bytes(data)
+                  rows.append((name, 'OK', len(data), width, height, detail_url, image_url))
+                  print(f'[{pos:02d}/52] OK {name} {len(data)} {width}x{height}')
+                  time.sleep(0.7)
+              except Exception as exc:
+                  rows.append((name, 'FAIL_EXCEPTION', 0, 0, 0, detail_url, repr(exc)))
+                  print(f'[{pos:02d}/52] FAIL_EXCEPTION {name}: {exc!r}')
+
+          manifest = '\n'.join('\t'.join(map(str, row)) for row in rows) + '\n'
+          OUT.joinpath('manifest.tsv').write_text(manifest, encoding='utf-8')
+          ok = sum(row[1] == 'OK' for row in rows)
+          OUT.joinpath('summary.txt').write_text(f'{ok}/52\n', encoding='utf-8')
+          print(f'Downloaded and validated {ok}/52 scans')
           PY
       - name: Upload scans and diagnostics
         uses: actions/upload-artifact@v4
         with:
           name: chmielnik-1918-birth-scans
-          path: scans/
+          path: |
+            scans/
+            diagnostics/
           if-no-files-found: error
           retention-days: 1
       - name: Publish temporary run metadata
@@ -100,6 +172,7 @@ jobs:
           printf '%s\n' "${GITHUB_RUN_ID}" > .tmp_chmielnik_fetch_results/run_id.txt
           cp scans/manifest.tsv .tmp_chmielnik_fetch_results/manifest.tsv || true
           cp scans/summary.txt .tmp_chmielnik_fetch_results/summary.txt || true
+          cp diagnostics/resolved_detail_links.tsv .tmp_chmielnik_fetch_results/resolved_detail_links.tsv || true
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add .tmp_chmielnik_fetch_results
