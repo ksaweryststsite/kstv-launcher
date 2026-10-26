@@ -97,7 +97,7 @@ class LauncherPreferences(context: Context) {
 
     fun launcherTheme(): LauncherThemeMode = runCatching {
         LauncherThemeMode.valueOf(preferences.getString(KEY_LAUNCHER_THEME, null).orEmpty())
-    }.getOrDefault(LauncherThemeMode.Theme1)
+    }.getOrDefault(LauncherThemeMode.Theme4)
 
     fun setLauncherTheme(theme: LauncherThemeMode) {
         preferences.edit().putString(KEY_LAUNCHER_THEME, theme.name).apply()
