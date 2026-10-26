@@ -1,6 +1,7 @@
 package pl.ksawery.ktvlauncher.ui.home
 
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -607,7 +608,7 @@ private fun GtvPoster(rawUri: String?): ImageBitmap? {
                 runCatching {
                     context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
                         val options = BitmapFactory.Options().apply {
-                            inPreferredConfig = BitmapFactory.Config.RGB_565
+                            inPreferredConfig = Bitmap.Config.RGB_565
                             inSampleSize = 2
                         }
                         BitmapFactory.decodeStream(stream, null, options)?.asImageBitmap()
