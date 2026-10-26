@@ -4,4 +4,5 @@ enum class LauncherThemeMode {
     Theme1,
     Theme2,
     Theme3,
+    Theme4,
 }
