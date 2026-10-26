@@ -201,18 +201,21 @@ class LauncherPreferences(context: Context) {
         LauncherThemeMode.Theme1 -> KEY_THEME_ONE_NAME
         LauncherThemeMode.Theme2 -> KEY_THEME_TWO_NAME
         LauncherThemeMode.Theme3 -> KEY_THEME_THREE_NAME
+        LauncherThemeMode.Theme4 -> KEY_THEME_FOUR_NAME
     }
 
     private fun themeDefaultName(theme: LauncherThemeMode): String = when (theme) {
         LauncherThemeMode.Theme1 -> "Theme 1"
         LauncherThemeMode.Theme2 -> "Theme 2"
         LauncherThemeMode.Theme3 -> "Theme 3"
+        LauncherThemeMode.Theme4 -> "Google TV"
     }
 
     private fun wallpaperKey(theme: LauncherThemeMode): String = when (theme) {
         LauncherThemeMode.Theme1 -> KEY_WALLPAPER_THEME_ONE
         LauncherThemeMode.Theme2 -> KEY_WALLPAPER_THEME_TWO
         LauncherThemeMode.Theme3 -> KEY_WALLPAPER_THEME_THREE
+        LauncherThemeMode.Theme4 -> KEY_WALLPAPER_THEME_FOUR
     }
 
     private fun componentArray(components: List<ComponentName>) = JSONArray().apply {
@@ -257,11 +260,13 @@ class LauncherPreferences(context: Context) {
         const val KEY_THEME_ONE_NAME = "theme_one_name"
         const val KEY_THEME_TWO_NAME = "theme_two_name"
         const val KEY_THEME_THREE_NAME = "theme_three_name"
+        const val KEY_THEME_FOUR_NAME = "theme_four_name"
         const val KEY_MEDIA_WIDGET = "media_widget_enabled"
         const val KEY_WALLPAPER_URI_LEGACY = "wallpaper_uri_stage2d"
         const val KEY_WALLPAPER_THEME_ONE = "wallpaper_uri_theme_one"
         const val KEY_WALLPAPER_THEME_TWO = "wallpaper_uri_theme_two"
         const val KEY_WALLPAPER_THEME_THREE = "wallpaper_uri_theme_three"
+        const val KEY_WALLPAPER_THEME_FOUR = "wallpaper_uri_theme_four"
         const val PROFILE_VERSION = 3
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
