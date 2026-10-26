@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no"><title>KScreen TV</title><link rel="stylesheet" href="style.css"></head>
+<body><div id="stage">
+ <div id="bgA" class="backdrop active" style="background-image:url('cinema_space.jpg')"></div><div id="bgB" class="backdrop"></div><div class="shade"></div>
+ <header>
+  <button data-action="profile" class="avatar navitem">K</button>
+  <div class="capsule">
+   <button data-action="search" class="navitem search-icon" aria-label="Szukaj"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="M15 15l6 6"/></svg></button>
+   <button data-action="home" class="navitem chosen">Dom</button>
+   <button data-action="live" class="navitem">Na zywo</button>
+   <button data-action="apps" class="navitem">Aplikacje</button>
+  </div>
+  <div class="capsule smallcapsule"><button data-action="ambient" class="navitem">✦</button><button data-action="settings" class="navitem" aria-label="Ustawienia">⚙</button></div>
+  <span class="clock"><span id="time">20:00</span><span class="line"></span>KScreen TV</span>
+ </header>
+ <main id="home" class="page show">
+  <section class="hero"><div class="service"><span class="star">✦</span><span id="heroService">POLECANE</span></div><h1 id="heroTitle">Poza horyzontem</h1><p id="heroDescription">Tam, gdzie konczy sie znany swiat, zaczyna sie nowa historia.</p></section>
+  <section class="recommend section"><div class="heading"><h2>Wybrane dla Ciebie</h2><div id="dots" class="dots"><i class="active"></i><i></i><i></i><i></i><i></i></div></div><div class="scrollrow" id="featured"></div></section>
+  <section class="appssection section"><div class="heading"><h2>Twoje aplikacje</h2></div><div class="scrollrow icons" id="appsHome"></div></section>
+  <section class="more section"><div class="heading"><h2>Odkrywaj wiecej</h2></div><div class="scrollrow" id="more"></div></section>
+ </main>
+ <main id="apps" class="page inner"><small>W TWOIM TELEWIZORZE</small><h1>Aplikacje</h1><p>Wszystkie zainstalowane aplikacje Android TV</p><div class="grid" id="allApps"></div></main>
+ <main id="search" class="page inner"><small>SZUKAJ</small><h1>Znajdz aplikacje</h1><input id="query" type="search" placeholder="Wpisz nazwe aplikacji"><div class="grid" id="matches"></div></main>
+ <main id="settings" class="page inner"><small>KSCREEN TV</small><h1>Ustawienia</h1><p>Osobna aplikacja, nie KSTV Launcher</p><div class="settingslist"><button data-action="system" class="action-card navitem"><strong>Ustawienia Android TV</strong><span>Przejdz do ustawien systemu</span></button><button data-action="apps" class="action-card navitem"><strong>Wszystkie aplikacje</strong><span>Przegladaj liste aplikacji</span></button></div></main>
+ <div id="toast"></div>
+</div><script src="app.js"></script></body></html>
