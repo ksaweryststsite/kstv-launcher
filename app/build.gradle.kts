@@ -9,11 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "pl.ksawery.ktvlauncher"
+        applicationId = "pl.ksawery.kscreen.tv"
         minSdk = 30
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.0.0-beta.11"
+        versionCode = 1
+        versionName = "0.1.0-alpha"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
