@@ -261,7 +261,17 @@ fun HomeScreen(
 
         when (screen) {
             LauncherScreen.Home -> {
-                if (uiState.launcherTheme == LauncherThemeMode.Theme2 ||
+                if (uiState.launcherTheme == LauncherThemeMode.Theme4) {
+                    GoogleTvDashboard(
+                        homeFocusRequest = homeRequest,
+                        uiState = uiState,
+                        onLaunchApp = onLaunchApp,
+                        onOpenApps = { screen = LauncherScreen.Apps },
+                        onOpenLauncherSettings = { screen = LauncherScreen.Settings },
+                        onLaunchWatchNext = onLaunchWatchNext,
+                        onLongClickApp = { contextApp = it },
+                    )
+                } else if (uiState.launcherTheme == LauncherThemeMode.Theme2 ||
                     uiState.launcherTheme == LauncherThemeMode.Theme3
                 ) {
                     ThemeTwoDashboard(
@@ -479,6 +489,7 @@ private fun LauncherBackground(
         }
         LauncherThemeMode.Theme2 -> ThemeTwoBackground()
         LauncherThemeMode.Theme3 -> ThemeThreeBackground()
+        LauncherThemeMode.Theme4 -> Unit
     }
 }
 
@@ -1535,6 +1546,7 @@ private fun LauncherSettingsScreen(
                         LauncherThemeMode.Theme1 -> uiState.themeOneName
                         LauncherThemeMode.Theme2 -> uiState.themeTwoName
                         LauncherThemeMode.Theme3 -> uiState.themeThreeName
+                        LauncherThemeMode.Theme4 -> "Google TV"
                     }
                     SettingRow(
                         "Motyw launchera",
