@@ -112,7 +112,7 @@ internal fun AppLaunchMotion(
                             alpha = 1f
                         }
                         clip = true
-                        shape = RoundedCornerShape(42.dp)
+                        shape = RoundedCornerShape((42f * (1f - progress.value)).dp)
                     }
                     .background(
                         Brush.linearGradient(
