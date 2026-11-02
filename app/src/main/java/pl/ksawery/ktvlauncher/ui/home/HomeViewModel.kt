@@ -1,5 +1,8 @@
 package pl.ksawery.ktvlauncher.ui.home
 
+import android.os.SystemClock
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -49,28 +52,44 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
     private var allWatchNextItems = emptyList<pl.ksawery.ktvlauncher.model.WatchNextItem>()
     private var mediaPollingJob: Job? = null
+    private var appRefreshJob: Job? = null
+    private var weatherRefreshJob: Job? = null
+    private var lastAppsRefreshMs = 0L
+    private var lastWeatherRefreshMs = 0L
+    private var inForeground = false
 
     init {
-        refreshApps()
+        refreshApps(force = true)
         refreshWeather()
         refreshWatchNext()
-        startMediaPlaybackMonitoring()
     }
 
-    fun refreshApps() {
-        viewModelScope.launch {
+    fun refreshApps(force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        if (appRefreshJob?.isActive == true) return
+        if (!force && lastAppsRefreshMs > 0L && now - lastAppsRefreshMs < 120_000L) return
+        appRefreshJob = viewModelScope.launch {
             runCatching { appRepository.getLaunchableApps() }
-                .onSuccess(::applyApps)
-                .onFailure {
-                    _uiState.update { state -> state.copy(isLoading = false) }
+                .onSuccess { apps ->
+                    lastAppsRefreshMs = SystemClock.elapsedRealtime()
+                    applyApps(apps)
                 }
+                .onFailure { _uiState.update { it.copy(isLoading = false) } }
         }
     }
 
     fun refreshWeather() {
-        viewModelScope.launch {
+        val now = SystemClock.elapsedRealtime()
+        if (weatherRefreshJob?.isActive == true) return
+        if (lastWeatherRefreshMs > 0L && now - lastWeatherRefreshMs < 600_000L) return
+        weatherRefreshJob = viewModelScope.launch {
             runCatching { weatherRepository.currentForBienczyce() }
-                .onSuccess { weather -> _uiState.update { it.copy(weather = weather) } }
+                .onSuccess { weather ->
+                    lastWeatherRefreshMs = SystemClock.elapsedRealtime()
+                    _uiState.update { old ->
+                        if (old.weather == weather) old else old.copy(weather = weather)
+                    }
+                }
         }
     }
 
@@ -234,25 +253,28 @@ class HomeViewModel(
         startMediaPlaybackMonitoring()
     }
 
-    fun refreshMediaPlayback() {
-        if (!_uiState.value.mediaWidgetEnabled) {
-            _uiState.update { it.copy(mediaPlayback = null) }
-            return
-        }
-        _uiState.update {
-            it.copy(mediaPlayback = mediaPlaybackRepository.currentPlayback())
-        }
+    fun setForeground(active: Boolean) {
+        if (inForeground == active) return
+        inForeground = active
+        startMediaPlaybackMonitoring()
     }
 
     private fun startMediaPlaybackMonitoring() {
         mediaPollingJob?.cancel()
+        mediaPollingJob = null
         if (!_uiState.value.mediaWidgetEnabled) {
-            _uiState.update { it.copy(mediaPlayback = null) }
+            _uiState.update { if (it.mediaPlayback == null) it else it.copy(mediaPlayback = null) }
             return
         }
+        if (!inForeground) return
         mediaPollingJob = viewModelScope.launch {
             while (isActive) {
-                refreshMediaPlayback()
+                val playback = withContext(Dispatchers.IO) {
+                    mediaPlaybackRepository.currentPlayback()
+                }
+                _uiState.update { old ->
+                    if (old.mediaPlayback == playback) old else old.copy(mediaPlayback = playback)
+                }
                 delay(MEDIA_POLLING_INTERVAL_MS)
             }
         }
@@ -431,7 +453,7 @@ class HomeViewModel(
         const val MAX_DOCK_SHORTCUTS = 3
         const val MAX_FEATURED_APPS = 2
         const val MAX_WATCH_NEXT_VISIBLE = 4
-        const val MEDIA_POLLING_INTERVAL_MS = 1_000L
+        const val MEDIA_POLLING_INTERVAL_MS = 4_000L
         val FEATURED_LABELS = listOf("Netflix", "Prime Video")
         val FAVORITE_LABELS = listOf(
             "Netflix", "Spotify", "YouTube", "Prime Video",

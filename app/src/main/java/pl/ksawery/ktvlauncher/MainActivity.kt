@@ -33,7 +33,9 @@ import pl.ksawery.ktvlauncher.ui.theme.KtvLauncherTheme
 
 class MainActivity : ComponentActivity() {
     private lateinit var homeViewModel: HomeViewModel
-    private var homeRequest by mutableIntStateOf(0)
+    private var homeRequest by mutableIntStateOf(1)
+    private var wasPaused = false
+    private var homeRequestAtPause = 1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,8 +77,8 @@ class MainActivity : ComponentActivity() {
                     viewModel = homeViewModel,
                     homeRequest = homeRequest,
                     onLaunchApp = { app ->
-                        homeViewModel.recordLaunch(app)
                         appLauncher.launch(app)
+                        homeViewModel.recordLaunch(app)
                     },
                     onPickWallpaper = { wallpaperPicker.launch(arrayOf("image/*")) },
                     onExportProfile = {
@@ -141,11 +143,21 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         configureFullscreen()
+        // Android can resume the home activity without sending a new HOME intent.
+        if (wasPaused && homeRequest == homeRequestAtPause) homeRequest++
+        wasPaused = false
         if (::homeViewModel.isInitialized) {
+            homeViewModel.setForeground(true)
             homeViewModel.refreshApps()
             homeViewModel.refreshWeather()
-            homeViewModel.refreshMediaPlayback()
         }
+    }
+
+    override fun onPause() {
+        homeRequestAtPause = homeRequest
+        wasPaused = true
+        if (::homeViewModel.isInitialized) homeViewModel.setForeground(false)
+        super.onPause()
     }
 
     private fun isValidWallpaper(uri: Uri): Boolean = runCatching {

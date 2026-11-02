@@ -20,6 +20,8 @@ class AndroidAppRepository(
     private val packageManager: PackageManager,
     private val ownPackageName: String,
 ) : AppRepository {
+    // Avoid re-decoding unchanged app icons when returning from a streaming app.
+    private val iconCache = LinkedHashMap<ComponentName, ImageBitmap>(96)
 
     override suspend fun getLaunchableApps(): List<LaunchableApp> = withContext(Dispatchers.IO) {
         val candidates = buildList {
@@ -53,7 +55,13 @@ class AndroidAppRepository(
                 activityInfo.packageName
             },
             componentName = ComponentName(activityInfo.packageName, activityInfo.name),
-            icon = info.loadIcon(packageManager).toImageBitmap(96),
+            icon = synchronized(iconCache) {
+                val component = ComponentName(activityInfo.packageName, activityInfo.name)
+                iconCache[component] ?: info.loadIcon(packageManager).toImageBitmap(96).also {
+                    iconCache[component] = it
+                    if (iconCache.size > 96) iconCache.remove(iconCache.keys.first())
+                }
+            },
             firstInstallTime = packageInfo.firstInstallTime,
         )
     }.getOrNull()
