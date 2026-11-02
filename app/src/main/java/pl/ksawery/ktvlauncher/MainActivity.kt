@@ -172,8 +172,12 @@ class MainActivity : ComponentActivity() {
                         if (launchPresentation == presentation) {
                             if (appLauncher.launch(presentation.app)) {
                                 homeViewModel.recordLaunch(presentation.app)
+                                // Keep the expanded frame behind Android's app-starting
+                                // window. Removing it immediately causes a launcher flash.
+                                // It is cleared by the next HOME/onResume request.
+                            } else {
+                                launchPresentation = null
                             }
-                            launchPresentation = null
                         }
                     }
                 }
