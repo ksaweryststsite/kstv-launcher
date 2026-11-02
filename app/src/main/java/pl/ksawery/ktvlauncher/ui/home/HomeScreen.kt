@@ -53,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -106,6 +107,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
+import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
@@ -114,6 +116,8 @@ import pl.ksawery.ktvlauncher.model.UiScale
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 import pl.ksawery.ktvlauncher.model.WatchNextStatus
 import pl.ksawery.ktvlauncher.ui.theme.KtvColors
+
+internal val LocalFocusAnimationMode = compositionLocalOf { FocusAnimationMode.GoogleTV }
 
 private enum class LauncherScreen {
     Home,
@@ -175,6 +179,7 @@ fun HomeRoute(
         onResetWallpaper = viewModel::resetWallpaper,
         onToggleDockBackground = viewModel::toggleDockBackground,
         onCycleUiScale = viewModel::cycleUiScale,
+        onCycleFocusAnimation = viewModel::cycleFocusAnimationMode,
         onCycleWatchNextSource = viewModel::cycleWatchNextSource,
         onCycleLauncherTheme = viewModel::cycleLauncherTheme,
         onToggleMediaWidget = viewModel::toggleMediaWidget,
@@ -212,6 +217,7 @@ fun HomeScreen(
     onResetWallpaper: () -> Unit,
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
+    onCycleFocusAnimation: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
@@ -240,6 +246,7 @@ fun HomeScreen(
             density = baseDensity.density * uiState.uiScale.multiplier,
             fontScale = baseDensity.fontScale,
         ),
+        LocalFocusAnimationMode provides uiState.focusAnimationMode,
     ) {
 
     BackHandler(enabled = true) {
@@ -335,6 +342,7 @@ fun HomeScreen(
                 onCycleHomeFocusMode = onCycleHomeFocusMode,
                 onToggleDockBackground = onToggleDockBackground,
                 onCycleUiScale = onCycleUiScale,
+                onCycleFocusAnimation = onCycleFocusAnimation,
                 onCycleWatchNextSource = onCycleWatchNextSource,
                 onCycleLauncherTheme = onCycleLauncherTheme,
                 onToggleMediaWidget = onToggleMediaWidget,
@@ -1429,6 +1437,7 @@ private fun LauncherSettingsScreen(
     onCycleHomeFocusMode: () -> Unit,
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
+    onCycleFocusAnimation: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
@@ -1539,6 +1548,18 @@ private fun LauncherSettingsScreen(
                         "${uiState.themeOneName} / ${uiState.themeTwoName} / ${uiState.themeThreeName}",
                         Icons.Rounded.Info,
                         onEditThemeNames,
+                    )
+                    SettingsSpacer()
+                    SettingRow(
+                        "Animacja zaznaczenia",
+                        when (uiState.focusAnimationMode) {
+                            FocusAnimationMode.Off -> "Wyłączona"
+                            FocusAnimationMode.GoogleTV -> "Google TV — subtelne skalowanie"
+                            FocusAnimationMode.AppleTV -> "Apple TV — większe powiększenie"
+                            FocusAnimationMode.Fade -> "Delikatne zanikanie"
+                        },
+                        Icons.Rounded.Apps,
+                        onCycleFocusAnimation,
                     )
                     SettingsSpacer()
                     SettingRow("Wybierz tapetę", "Obraz z pamięci urządzenia", Icons.Rounded.Wallpaper, onPickWallpaper)
@@ -2338,10 +2359,21 @@ private fun FocusableSurface(
     var longPressTriggered by remember { mutableStateOf(false) }
     var keyDownStartedHere by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val animationMode = LocalFocusAnimationMode.current
+    val focusedTarget = when (animationMode) {
+        FocusAnimationMode.Off, FocusAnimationMode.Fade -> 1f
+        FocusAnimationMode.GoogleTV -> focusedScale
+        FocusAnimationMode.AppleTV -> maxOf(focusedScale, 1.13f)
+    }
     val scale by animateFloatAsState(
-        targetValue = if (focused) focusedScale else 1f,
-        animationSpec = tween(durationMillis = 105),
+        targetValue = if (focused) focusedTarget else 1f,
+        animationSpec = tween(durationMillis = if (animationMode == FocusAnimationMode.AppleTV) 175 else 115),
         label = "focusScale",
+    )
+    val fadeAlpha by animateFloatAsState(
+        targetValue = if (animationMode == FocusAnimationMode.Fade && !focused) 0.78f else 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "focusFade",
     )
 
     Box(
@@ -2349,6 +2381,7 @@ private fun FocusableSurface(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = fadeAlpha
                 this.shape = shape
                 clip = true
             }
