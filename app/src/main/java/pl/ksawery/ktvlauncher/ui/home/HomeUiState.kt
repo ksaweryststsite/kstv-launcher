@@ -1,6 +1,7 @@
 package pl.ksawery.ktvlauncher.ui.home
 
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
@@ -27,6 +28,7 @@ data class HomeUiState(
     val continueWatchingEnabled: Boolean = true,
     val dockBackgroundEnabled: Boolean = true,
     val uiScale: UiScale = UiScale.Auto,
+    val focusAnimationMode: FocusAnimationMode = FocusAnimationMode.GoogleTV,
     val launcherTheme: LauncherThemeMode = LauncherThemeMode.Theme1,
     val themeOneName: String = "Theme 1",
     val themeTwoName: String = "Theme 2",

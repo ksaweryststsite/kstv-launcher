@@ -20,6 +20,7 @@ import pl.ksawery.ktvlauncher.data.MediaPlaybackRepository
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.model.LaunchableApp
+import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
 import pl.ksawery.ktvlauncher.model.ShelfMode
@@ -42,6 +43,7 @@ class HomeViewModel(
             homeFocusMode = preferences.homeFocusMode(),
             dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
             uiScale = preferences.uiScale(),
+            focusAnimationMode = preferences.focusAnimationMode(),
             themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
             themeTwoName = preferences.themeName(LauncherThemeMode.Theme2),
             themeThreeName = preferences.themeName(LauncherThemeMode.Theme3),
@@ -215,6 +217,14 @@ class HomeViewModel(
         _uiState.update { it.copy(uiScale = scale) }
     }
 
+    fun cycleFocusAnimationMode() {
+        val modes = FocusAnimationMode.entries
+        val current = modes.indexOf(_uiState.value.focusAnimationMode)
+        val next = modes[(current + 1) % modes.size]
+        preferences.setFocusAnimationMode(next)
+        _uiState.update { it.copy(focusAnimationMode = next) }
+    }
+
     fun cycleLauncherTheme() {
         val values = LauncherThemeMode.entries
         val current = values.indexOf(_uiState.value.launcherTheme)
@@ -316,6 +326,7 @@ class HomeViewModel(
                 continueWatchingEnabled = preferences.continueWatchingEnabled(),
                 dockBackgroundEnabled = preferences.dockBackgroundEnabled(),
                 uiScale = preferences.uiScale(),
+                focusAnimationMode = preferences.focusAnimationMode(),
                 launcherTheme = preferences.launcherTheme(),
                 wallpaperUri = preferences.wallpaperUri(preferences.launcherTheme()),
                 themeOneName = preferences.themeName(LauncherThemeMode.Theme1),
