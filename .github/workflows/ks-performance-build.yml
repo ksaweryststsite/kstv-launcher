@@ -1,0 +1,55 @@
+name: KS V2 Performance - Android APK
+
+on:
+  push:
+    branches: [gpt-v2-ks-performance-20261102]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ks-performance-build.yml'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK 35
+        shell: bash
+        run: |
+          export ANDROID_HOME="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl --retry 3 -fLsS "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o "$RUNNER_TEMP/android-tools.zip"
+          unzip -q "$RUNNER_TEMP/android-tools.zip" -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platforms;android-35" "build-tools;35.0.0"
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build KS V2 Performance APK
+        run: gradle --no-daemon assembleDebug --stacktrace
+      - name: Name APK and fingerprint
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk out/KS_V2_Performance_test.apk
+          sha256sum out/KS_V2_Performance_test.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KS_V2_Performance_APK
+          path: out/*.apk
+          retention-days: 7
+          if-no-files-found: error
