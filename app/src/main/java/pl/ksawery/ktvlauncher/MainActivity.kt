@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
             mediaPlaybackRepository = MediaPlaybackRepository(this),
             preferences = preferences,
         )
-        val appLauncher = AppLauncher(this)
+        val appLauncher = AppLauncher(this, preferences)
         homeViewModel = ViewModelProvider(this, viewModelFactory)[HomeViewModel::class.java]
 
         setContent {
@@ -122,7 +122,9 @@ class MainActivity : ComponentActivity() {
                     onLaunchWatchNext = { item ->
                         item.intentUri?.let { intentUri ->
                             runCatching {
-                                startActivity(Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME))
+                                appLauncher.launchIntent(
+                                    Intent.parseUri(intentUri, Intent.URI_INTENT_SCHEME)
+                                )
                             }
                         }
                     },

@@ -107,6 +107,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import pl.ksawery.ktvlauncher.BuildConfig
 import pl.ksawery.ktvlauncher.R
+import pl.ksawery.ktvlauncher.model.LaunchAnimationMode
 import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
@@ -180,6 +181,7 @@ fun HomeRoute(
         onToggleDockBackground = viewModel::toggleDockBackground,
         onCycleUiScale = viewModel::cycleUiScale,
         onCycleFocusAnimation = viewModel::cycleFocusAnimationMode,
+        onCycleLaunchAnimation = viewModel::cycleLaunchAnimationMode,
         onCycleWatchNextSource = viewModel::cycleWatchNextSource,
         onCycleLauncherTheme = viewModel::cycleLauncherTheme,
         onToggleMediaWidget = viewModel::toggleMediaWidget,
@@ -218,6 +220,7 @@ fun HomeScreen(
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
     onCycleFocusAnimation: () -> Unit,
+    onCycleLaunchAnimation: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
@@ -343,6 +346,7 @@ fun HomeScreen(
                 onToggleDockBackground = onToggleDockBackground,
                 onCycleUiScale = onCycleUiScale,
                 onCycleFocusAnimation = onCycleFocusAnimation,
+                onCycleLaunchAnimation = onCycleLaunchAnimation,
                 onCycleWatchNextSource = onCycleWatchNextSource,
                 onCycleLauncherTheme = onCycleLauncherTheme,
                 onToggleMediaWidget = onToggleMediaWidget,
@@ -1438,6 +1442,7 @@ private fun LauncherSettingsScreen(
     onToggleDockBackground: () -> Unit,
     onCycleUiScale: () -> Unit,
     onCycleFocusAnimation: () -> Unit,
+    onCycleLaunchAnimation: () -> Unit,
     onCycleWatchNextSource: () -> Unit,
     onCycleLauncherTheme: () -> Unit,
     onToggleMediaWidget: () -> Unit,
@@ -1551,7 +1556,20 @@ private fun LauncherSettingsScreen(
                     )
                     SettingsSpacer()
                     SettingRow(
-                        "Animacja zaznaczenia",
+                        "Animacja OTWIERANIA aplikacji",
+                        when (uiState.launchAnimationMode) {
+                            LaunchAnimationMode.System -> "Systemowa — oryginalna animacja Android TV"
+                            LaunchAnimationMode.GoogleTV -> "Google TV — szybki zoom + zanikanie"
+                            LaunchAnimationMode.AppleTV -> "Apple TV — płynne powiększenie"
+                            LaunchAnimationMode.Fade -> "Łagodne zanikanie"
+                            LaunchAnimationMode.Off -> "Wyłączona — bez animacji"
+                        },
+                        Icons.Rounded.PlayArrow,
+                        onCycleLaunchAnimation,
+                    )
+                    SettingsSpacer()
+                    SettingRow(
+                        "Animacja ZAZNACZENIA ikony",
                         when (uiState.focusAnimationMode) {
                             FocusAnimationMode.Off -> "Wyłączona"
                             FocusAnimationMode.GoogleTV -> "Google TV — subtelne skalowanie"

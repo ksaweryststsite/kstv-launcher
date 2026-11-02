@@ -4,6 +4,7 @@ import android.content.ComponentName
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
+import pl.ksawery.ktvlauncher.model.LaunchAnimationMode
 import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LauncherThemeMode
@@ -96,6 +97,14 @@ class LauncherPreferences(context: Context) {
         preferences.edit().putString(KEY_UI_SCALE, scale.name).apply()
     }
 
+    fun launchAnimationMode(): LaunchAnimationMode = runCatching {
+        LaunchAnimationMode.valueOf(preferences.getString(KEY_LAUNCH_ANIMATION, null).orEmpty())
+    }.getOrDefault(LaunchAnimationMode.System)
+
+    fun setLaunchAnimationMode(mode: LaunchAnimationMode) {
+        preferences.edit().putString(KEY_LAUNCH_ANIMATION, mode.name).apply()
+    }
+
     fun focusAnimationMode(): FocusAnimationMode = runCatching {
         FocusAnimationMode.valueOf(preferences.getString(KEY_FOCUS_ANIMATION, null).orEmpty())
     }.getOrDefault(FocusAnimationMode.GoogleTV)
@@ -160,6 +169,7 @@ class LauncherPreferences(context: Context) {
         put("dockBackground", dockBackgroundEnabled())
         put("uiScale", uiScale().name)
         put("focusAnimation", focusAnimationMode().name)
+        put("launchAnimation", launchAnimationMode().name)
         put("launcherTheme", launcherTheme().name)
         put("themeOneName", themeName(LauncherThemeMode.Theme1))
         put("themeTwoName", themeName(LauncherThemeMode.Theme2))
@@ -188,6 +198,9 @@ class LauncherPreferences(context: Context) {
         }
         profile.optString("uiScale").takeIf(String::isNotBlank)?.let {
             setUiScale(UiScale.valueOf(it))
+        }
+        profile.optString("launchAnimation").takeIf(String::isNotBlank)?.let {
+            setLaunchAnimationMode(LaunchAnimationMode.valueOf(it))
         }
         profile.optString("focusAnimation").takeIf(String::isNotBlank)?.let {
             setFocusAnimationMode(FocusAnimationMode.valueOf(it))
@@ -271,6 +284,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_UI_SCALE = "ui_scale"
         const val KEY_LAUNCHER_THEME = "launcher_theme"
         const val KEY_FOCUS_ANIMATION = "focus_animation_mode"
+        const val KEY_LAUNCH_ANIMATION = "launch_animation_mode"
         const val KEY_THEME_ONE_NAME = "theme_one_name"
         const val KEY_THEME_TWO_NAME = "theme_two_name"
         const val KEY_THEME_THREE_NAME = "theme_three_name"
@@ -281,7 +295,7 @@ class LauncherPreferences(context: Context) {
         const val KEY_WALLPAPER_THEME_TWO = "wallpaper_uri_theme_two"
         const val KEY_WALLPAPER_THEME_THREE = "wallpaper_uri_theme_three"
         const val KEY_WALLPAPER_THEME_FOUR = "wallpaper_uri_theme_four"
-        const val PROFILE_VERSION = 4
+        const val PROFILE_VERSION = 5
         const val MAX_RECENT = 8
         const val MAX_FAVORITES = 8
         const val MAX_DOCK_SHORTCUTS = 3
