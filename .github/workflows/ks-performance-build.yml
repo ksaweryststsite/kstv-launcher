@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/KS_V2_Performance_release.apk
-          sha256sum out/KS_V2_Performance_test.apk
+          sha256sum out/KS_V2_Performance_release.apk
       - uses: actions/upload-artifact@v4
         with:
           name: KS_V2_Performance_Release_APK
