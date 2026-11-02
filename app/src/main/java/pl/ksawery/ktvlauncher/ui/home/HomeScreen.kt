@@ -983,7 +983,7 @@ private fun ContentShelf(
         // Request only after composition attaches the new focus target.
         repeat(4) {
             delay(40L)
-            if (runCatching { firstFavoriteFocusRequester.requestFocus() }.getOrDefault(false)) {
+            if (runCatching { firstFavoriteFocusRequester.requestFocus() }.isSuccess) {
                 return@LaunchedEffect
             }
         }

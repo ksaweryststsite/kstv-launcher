@@ -98,7 +98,7 @@ internal fun GoogleTvDashboard(
         if (pinned.isEmpty() || homeFocusRequest <= 0) return@LaunchedEffect
         repeat(4) {
             delay(40L)
-            if (runCatching { firstAppFocus.requestFocus() }.getOrDefault(false)) {
+            if (runCatching { firstAppFocus.requestFocus() }.isSuccess) {
                 return@LaunchedEffect
             }
         }
