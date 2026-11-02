@@ -1,0 +1,68 @@
+name: Google TV GPT V2 - native alpha APK
+on:
+  push:
+    branches: [gpt-v2-apk-build-20261102]
+    paths:
+      - gpt-v2/**
+      - .github/workflows/gpt-v2-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout isolated build branch
+        uses: actions/checkout@v4
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Bootstrap Android SDK 34
+        shell: bash
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          curl --retry 3 -fLsS "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o "$RUNNER_TEMP/android-tools.zip"
+          unzip -q "$RUNNER_TEMP/android-tools.zip" -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" --licenses >/dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$ANDROID_HOME" "platforms;android-34" "build-tools;34.0.0"
+      - name: Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Extract V2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p v2-native
+          base64 -d gpt-v2/source.tar.xz.b64 > "$RUNNER_TEMP/v2-source.tar.xz"
+          tar -xJf "$RUNNER_TEMP/v2-source.tar.xz" -C v2-native
+          test -f v2-native/app/src/main/java/tv/gpt/v2/MainActivity.java
+      - name: Compile V2 APK
+        shell: bash
+        run: |
+          cd v2-native
+          gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Name and verify APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p results
+          cp v2-native/app/build/outputs/apk/debug/app-debug.apk results/GoogleTV_GPT_V2_v0.2_alpha.apk
+          unzip -t results/GoogleTV_GPT_V2_v0.2_alpha.apk | tail -1
+          sha256sum results/GoogleTV_GPT_V2_v0.2_alpha.apk
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoogleTV_GPT_V2_v0.2_alpha
+          path: results/*.apk
+          if-no-files-found: error
+          retention-days: 14
