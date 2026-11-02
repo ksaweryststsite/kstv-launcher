@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity() {
                     onExportProfile = {
                         val exported = exportProfile(preferences.exportProfile())
                         Toast.makeText(
-                            this,
+                            this@MainActivity,
                             if (exported) "Profil zapisany w Pobrane/KSTV" else "Nie udało się zapisać profilu",
                             Toast.LENGTH_LONG,
                         ).show()
@@ -127,7 +127,7 @@ class MainActivity : ComponentActivity() {
                         val imported = profile != null && preferences.importProfile(profile)
                         if (imported) homeViewModel.reloadProfile()
                         Toast.makeText(
-                            this,
+                            this@MainActivity,
                             if (imported) "Profil został wczytany" else "Nie znaleziono profilu w Pobrane/KSTV",
                             Toast.LENGTH_LONG,
                         ).show()
