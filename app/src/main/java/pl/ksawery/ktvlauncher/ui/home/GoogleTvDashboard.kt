@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,8 +63,11 @@ import androidx.compose.ui.unit.sp
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.WatchNextItem
@@ -408,6 +412,7 @@ private fun GtvAppTile(
     ) {
         GtvFocusSurface(
             onClick = onClick,
+            onLongClick = onLongClick,
             shape = CircleShape,
             modifier = modifier.size(62.dp),
         ) { focused ->
@@ -555,31 +560,78 @@ private fun GtvTopPill(label: String, selected: Boolean, onClick: () -> Unit) {
 @Composable
 private fun GtvFocusSurface(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     shape: Shape,
     modifier: Modifier = Modifier,
     content: @Composable (focused: Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var keyDown by remember { mutableStateOf(false) }
+    var longTriggered by remember { mutableStateOf(false) }
+    var pressJob by remember { mutableStateOf<Job?>(null) }
+    val scope = rememberCoroutineScope()
+    val animationMode = LocalFocusAnimationMode.current
+    val focusScale = when (animationMode) {
+        FocusAnimationMode.Off, FocusAnimationMode.Fade -> 1f
+        FocusAnimationMode.GoogleTV -> 1.07f
+        FocusAnimationMode.AppleTV -> 1.13f
+    }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.07f else 1f,
-        animationSpec = tween(durationMillis = 160),
+        targetValue = if (focused) focusScale else 1f,
+        animationSpec = tween(durationMillis = if (animationMode == FocusAnimationMode.AppleTV) 175 else 125),
         label = "googleTvFocus",
+    )
+    val fadeAlpha by animateFloatAsState(
+        targetValue = if (animationMode == FocusAnimationMode.Fade && !focused) 0.78f else 1f,
+        animationSpec = tween(150),
+        label = "googleTvFade",
     )
     Box(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = fadeAlpha
             }
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (!focused) {
+                    pressJob?.cancel()
+                    pressJob = null
+                    keyDown = false
+                }
+            }
             .onKeyEvent { event ->
                 val ok = event.key == Key.DirectionCenter ||
                     event.key == Key.Enter || event.key == Key.NumPadEnter
-                if (ok && event.type == KeyEventType.KeyUp) {
-                    onClick()
-                    true
-                } else {
-                    ok && event.type == KeyEventType.KeyDown
+                if (!ok) return@onKeyEvent false
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (!keyDown) {
+                            keyDown = true
+                            longTriggered = false
+                            if (onLongClick != null) {
+                                pressJob?.cancel()
+                                pressJob = scope.launch {
+                                    delay(550L)
+                                    if (keyDown) {
+                                        longTriggered = true
+                                        onLongClick()
+                                    }
+                                }
+                            }
+                        }
+                        true
+                    }
+                    KeyEventType.KeyUp -> {
+                        pressJob?.cancel()
+                        pressJob = null
+                        if (keyDown && !longTriggered) onClick()
+                        keyDown = false
+                        longTriggered = false
+                        true
+                    }
+                    else -> false
                 }
             }
             .focusable(),
