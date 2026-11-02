@@ -236,6 +236,6 @@ class MainActivity : ComponentActivity() {
     private companion object {
         const val ACTION_NOTIFICATION_SETTINGS = "android.settings.NOTIFICATION_SETTINGS"
         const val READ_TV_LISTINGS_PERMISSION = "android.permission.READ_TV_LISTINGS"
-        const val PROFILE_PREFIX = "kstv-launcher-profile-"
+        const val PROFILE_PREFIX = "google-tv-gpt-v2-profile-"
     }
 }

@@ -9,11 +9,11 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "pl.ksawery.ktvlauncher"
+        applicationId = "pl.ksawery.googletvgptv2"
         minSdk = 30
         targetSdk = 35
-        versionCode = 32
-        versionName = "1.0.0-beta.12-performance"
+        versionCode = 1
+        versionName = "0.3.0-alpha1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true

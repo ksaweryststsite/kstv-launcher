@@ -29,7 +29,7 @@ data class HomeUiState(
     val dockBackgroundEnabled: Boolean = true,
     val uiScale: UiScale = UiScale.Auto,
     val focusAnimationMode: FocusAnimationMode = FocusAnimationMode.GoogleTV,
-    val launcherTheme: LauncherThemeMode = LauncherThemeMode.Theme1,
+    val launcherTheme: LauncherThemeMode = LauncherThemeMode.Theme4,
     val themeOneName: String = "Theme 1",
     val themeTwoName: String = "Theme 2",
     val themeThreeName: String = "Theme 3",

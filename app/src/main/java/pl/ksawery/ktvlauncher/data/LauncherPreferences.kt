@@ -106,7 +106,7 @@ class LauncherPreferences(context: Context) {
 
     fun launcherTheme(): LauncherThemeMode = runCatching {
         LauncherThemeMode.valueOf(preferences.getString(KEY_LAUNCHER_THEME, null).orEmpty())
-    }.getOrDefault(LauncherThemeMode.Theme1)
+    }.getOrDefault(LauncherThemeMode.Theme4)
 
     fun setLauncherTheme(theme: LauncherThemeMode) {
         preferences.edit().putString(KEY_LAUNCHER_THEME, theme.name).apply()
@@ -257,7 +257,7 @@ class LauncherPreferences(context: Context) {
     }
 
     private companion object {
-        const val FILE_NAME = "launcher_preferences"
+        const val FILE_NAME = "google_tv_gpt_v2_preferences"
         const val KEY_RECENT = "recent_components_v2"
         const val KEY_FAVORITES = "favorite_components"
         const val KEY_DOCK = "dock_components"

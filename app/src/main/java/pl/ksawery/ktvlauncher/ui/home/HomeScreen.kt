@@ -1483,7 +1483,7 @@ private fun LauncherSettingsScreen(
     ) {
         Column(modifier = Modifier.width(220.dp)) {
             Text("Ustawienia", color = KtvColors.TextPrimary, fontSize = 27.sp)
-            Text("KSTV Launcher", color = KtvColors.TextSecondary, fontSize = 12.sp)
+            Text("Google TV GPT V2", color = KtvColors.TextSecondary, fontSize = 12.sp)
             Spacer(Modifier.height(24.dp))
             SettingsSection.entries.forEachIndexed { index, item ->
                 SettingsNavigationRow(
@@ -1564,7 +1564,7 @@ private fun LauncherSettingsScreen(
                     SettingsSpacer()
                     SettingRow("Wybierz tapetę", "Obraz z pamięci urządzenia", Icons.Rounded.Wallpaper, onPickWallpaper)
                     SettingsSpacer()
-                    SettingRow("Przywróć domyślną", "Wbudowana tapeta KSTV", Icons.Rounded.Wallpaper, onResetWallpaper)
+                    SettingRow("Przywróć domyślną", "Domyślna tapeta GPT V2", Icons.Rounded.Wallpaper, onResetWallpaper)
                     SettingsSpacer()
                     SettingRow(
                         "Widżet odtwarzacza",
@@ -1576,7 +1576,7 @@ private fun LauncherSettingsScreen(
                     SettingsSpacer()
                     SettingRow(
                         "Dostęp do odtwarzacza",
-                        "Włącz usługę KSTV Media w ustawieniach Androida",
+                        "Włącz usługę GPT V2 Media w ustawieniach Androida",
                         Icons.Rounded.Settings,
                         onOpenMediaAccess,
                     )
@@ -2320,7 +2320,7 @@ private fun InfoOverlay(onClose: () -> Unit) {
                     .background(Color(0xF21A1E25))
                     .padding(24.dp),
             ) {
-                Text("KSTV Launcher", color = KtvColors.TextPrimary, fontSize = 22.sp)
+                Text("Google TV GPT V2", color = KtvColors.TextPrimary, fontSize = 22.sp)
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Wersja ${BuildConfig.VERSION_NAME}",

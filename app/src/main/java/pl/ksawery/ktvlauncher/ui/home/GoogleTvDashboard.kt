@@ -72,7 +72,7 @@ import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.WatchNextItem
 
-// Fourth KSTV theme. Native Compose UI with no Google TV platform dependencies.
+// Fourth GPT V2 theme. Native Compose UI with no Google TV platform dependencies.
 // Content is only sourced from installed applications and Android TV Watch Next.
 @Composable
 internal fun GoogleTvDashboard(
@@ -121,7 +121,7 @@ internal fun GoogleTvDashboard(
                 .padding(start = 36.dp, end = 37.dp, top = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("G", color = Color(0xFFE6EBF6), fontSize = 26.sp, fontWeight = FontWeight.Bold)
+            Text("GTV", color = Color(0xFFE6EBF6), fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.width(19.dp))
             GtvTopPill(label = "Dla Ciebie", selected = true, onClick = {})
             Spacer(Modifier.width(8.dp))
@@ -151,7 +151,7 @@ internal fun GoogleTvDashboard(
                     Icon(
                         imageVector = Icons.Rounded.Settings,
                         tint = Color.White,
-                        contentDescription = "Ustawienia KSTV",
+                        contentDescription = "Ustawienia GPT V2",
                         modifier = Modifier.size(19.dp),
                     )
                 }
@@ -232,7 +232,7 @@ internal fun GoogleTvDashboard(
                 fontWeight = FontWeight.Medium,
             )
             Spacer(Modifier.weight(1f))
-            Text("KSTV", fontSize = 11.sp, color = Color(0xFF8EA3BD))
+            Text("GPT V2", fontSize = 11.sp, color = Color(0xFF8EA3BD))
         }
         if (hasWatchNext) {
             LazyRow(
@@ -404,7 +404,7 @@ private fun GtvAppTile(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Short OK launches the app. Long OK can be added through KSTV's context menu.
+    // Short OK launches the app. Long OK can be added through GPT V2's context menu.
     // The icon itself is the actual Android-installed app icon.
     Column(
         modifier = Modifier.width(66.dp),
