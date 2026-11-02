@@ -10,6 +10,15 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +35,10 @@ import pl.ksawery.ktvlauncher.data.MediaPlaybackRepository
 import pl.ksawery.ktvlauncher.data.WatchNextRepository
 import pl.ksawery.ktvlauncher.data.WeatherRepository
 import pl.ksawery.ktvlauncher.domain.AppLauncher
+import pl.ksawery.ktvlauncher.model.LaunchAnimationMode
+import pl.ksawery.ktvlauncher.ui.home.AppLaunchAnchor
+import pl.ksawery.ktvlauncher.ui.home.AppLaunchMotion
+import pl.ksawery.ktvlauncher.ui.home.AppLaunchPresentation
 import pl.ksawery.ktvlauncher.ui.home.HomeRoute
 import pl.ksawery.ktvlauncher.ui.home.HomeViewModel
 import pl.ksawery.ktvlauncher.ui.home.HomeViewModelFactory
@@ -72,13 +85,36 @@ class MainActivity : ComponentActivity() {
             ) {
                 homeViewModel.refreshWatchNext()
             }
+            var launchPresentation by remember { mutableStateOf<AppLaunchPresentation?>(null) }
+            LaunchedEffect(homeRequest) {
+                // If Android returned HOME while an app-launch window was in flight,
+                // do not leave any overlay covering the launcher.
+                if (homeRequest > 1) launchPresentation = null
+            }
             KtvLauncherTheme {
+                Box(modifier = Modifier.fillMaxSize()) {
                 HomeRoute(
                     viewModel = homeViewModel,
                     homeRequest = homeRequest,
                     onLaunchApp = { app ->
-                        appLauncher.launch(app)
-                        homeViewModel.recordLaunch(app)
+                        // Launch animation is separate from D-pad/focus animations.
+                        // The presentation state is set immediately on OK release.
+                        if (launchPresentation == null) {
+                            when (val mode = preferences.launchAnimationMode()) {
+                                LaunchAnimationMode.System, LaunchAnimationMode.Off -> {
+                                    if (appLauncher.launch(app)) homeViewModel.recordLaunch(app)
+                                }
+                                LaunchAnimationMode.GoogleTV,
+                                LaunchAnimationMode.AppleTV,
+                                LaunchAnimationMode.Fade -> {
+                                    launchPresentation = AppLaunchPresentation(
+                                        app = app,
+                                        mode = mode,
+                                        bounds = AppLaunchAnchor.focusedBounds,
+                                    )
+                                }
+                            }
+                        }
                     },
                     onPickWallpaper = { wallpaperPicker.launch(arrayOf("image/*")) },
                     onExportProfile = {
@@ -132,6 +168,19 @@ class MainActivity : ComponentActivity() {
                         tvListingsPermission.launch(READ_TV_LISTINGS_PERMISSION)
                     },
                 )
+                launchPresentation?.let { presentation ->
+                    AppLaunchMotion(presentation = presentation) {
+                        // Window transition begins after a very short on-screen zoom.
+                        // This keeps OK perceptibly immediate even if Netflix needs time.
+                        if (launchPresentation == presentation) {
+                            if (appLauncher.launch(presentation.app)) {
+                                homeViewModel.recordLaunch(presentation.app)
+                            }
+                            launchPresentation = null
+                        }
+                    }
+                }
+                }
             }
         }
     }
