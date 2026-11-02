@@ -142,7 +142,7 @@ internal fun AppLaunchMotion(
                     .size(158.dp)
                     .graphicsLayer {
                         val t = progress.value
-                        scaleX = iconStartScale + (if (apple) 1.22f else 1.05f - iconStartScale) * t
+                        scaleX = iconStartScale + ((if (apple) 1.22f else 1.05f) - iconStartScale) * t
                         scaleY = scaleX
                         translationX = offsetX * (1f - t)
                         translationY = offsetY * (1f - t)

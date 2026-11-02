@@ -45,11 +45,11 @@ jobs:
       - name: Name APK and fingerprint
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/app-release.apk out/Google_TV_GPT_V2_v0.3_Alpha.apk
-          sha256sum out/Google_TV_GPT_V2_v0.3_Alpha.apk
+          cp app/build/outputs/apk/release/app-release.apk out/Google_TV_GPT_V2_v0.3.2_AppleMotion.apk
+          sha256sum out/Google_TV_GPT_V2_v0.3.2_AppleMotion.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Google_TV_GPT_V2_Standalone_APK
+          name: Google_TV_GPT_V2_Apple_Motion_APK
           path: out/*.apk
           retention-days: 7
           if-no-files-found: error

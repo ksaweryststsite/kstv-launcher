@@ -99,7 +99,7 @@ class LauncherPreferences(context: Context) {
 
     fun launchAnimationMode(): LaunchAnimationMode = runCatching {
         LaunchAnimationMode.valueOf(preferences.getString(KEY_LAUNCH_ANIMATION, null).orEmpty())
-    }.getOrDefault(LaunchAnimationMode.System)
+    }.getOrDefault(LaunchAnimationMode.AppleTV)
 
     fun setLaunchAnimationMode(mode: LaunchAnimationMode) {
         preferences.edit().putString(KEY_LAUNCH_ANIMATION, mode.name).apply()
