@@ -90,13 +90,13 @@ internal fun GoogleTvDashboard(
             delay(60_000)
         }
     }
-    LaunchedEffect(homeFocusRequest, pinned.size) {
-        if (pinned.isNotEmpty() &&
-            homeFocusRequest > 0 &&
-            uiState.homeFocusMode != HomeFocusMode.KeepCurrent
-        ) {
-            delay(100)
-            firstAppFocus.requestFocus()
+    LaunchedEffect(homeFocusRequest, pinned.firstOrNull()?.stableKey) {
+        if (pinned.isEmpty() || homeFocusRequest <= 0) return@LaunchedEffect
+        repeat(4) {
+            delay(40L)
+            if (runCatching { firstAppFocus.requestFocus() }.getOrDefault(false)) {
+                return@LaunchedEffect
+            }
         }
     }
 
@@ -403,13 +403,13 @@ private fun GtvAppTile(
     // Short OK launches the app. Long OK can be added through KSTV's context menu.
     // The icon itself is the actual Android-installed app icon.
     Column(
-        modifier = modifier.width(66.dp),
+        modifier = Modifier.width(66.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         GtvFocusSurface(
             onClick = onClick,
             shape = CircleShape,
-            modifier = Modifier.size(62.dp),
+            modifier = modifier.size(62.dp),
         ) { focused ->
             Box(
                 modifier = Modifier.fillMaxSize()
@@ -602,19 +602,7 @@ private fun GtvFocusSurface(
 private fun GtvPoster(rawUri: String?): ImageBitmap? {
     val context = LocalContext.current
     val poster by produceState<ImageBitmap?>(initialValue = null, key1 = rawUri) {
-        value = rawUri?.let { uri ->
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    context.contentResolver.openInputStream(Uri.parse(uri))?.use { stream ->
-                        val options = BitmapFactory.Options().apply {
-                            inPreferredConfig = BitmapFactory.Config.RGB_565
-                            inSampleSize = 2
-                        }
-                        BitmapFactory.decodeStream(stream, null, options)?.asImageBitmap()
-                    }
-                }.getOrNull()
-            }
-        }
+        value = PosterLoader.load(context, rawUri)
     }
     return poster
 }

@@ -970,24 +970,14 @@ private fun ContentShelf(
     val hasFirstLeftTile = shelfMode == ShelfMode.WatchNext ||
         (shelfMode == ShelfMode.AppShortcuts && featuredApps.isNotEmpty())
 
-    LaunchedEffect(
-        homeFocusRequest,
-        homeFocusMode,
-        shelfMode,
-        watchNextStatus,
-        featuredApps.firstOrNull()?.stableKey,
-        favorites.firstOrNull()?.stableKey,
-    ) {
-        if (homeFocusRequest <= 0) return@LaunchedEffect
-        when (homeFocusMode) {
-            HomeFocusMode.FirstLargeTile -> {
-                if (hasFirstLeftTile) firstLeftFocusRequester.requestFocus()
-                else if (favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+    LaunchedEffect(homeFocusRequest, favorites.firstOrNull()?.stableKey) {
+        if (homeFocusRequest <= 0 || favorites.isEmpty()) return@LaunchedEffect
+        // Request only after composition attaches the new focus target.
+        repeat(4) {
+            delay(40L)
+            if (runCatching { firstFavoriteFocusRequester.requestFocus() }.getOrDefault(false)) {
+                return@LaunchedEffect
             }
-            HomeFocusMode.FirstFavorite -> {
-                if (favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
-            }
-            HomeFocusMode.KeepCurrent -> Unit
         }
     }
 
@@ -1235,18 +1225,7 @@ private fun WatchNextCard(
 private fun rememberUriImage(uri: String?): ImageBitmap? {
     val context = LocalContext.current
     val image by produceState<ImageBitmap?>(initialValue = null, key1 = uri) {
-        value = uri?.let { value ->
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val parsed = Uri.parse(value)
-                    val stream = when (parsed.scheme) {
-                        "http", "https" -> URL(value).openStream()
-                        else -> context.contentResolver.openInputStream(parsed)
-                    }
-                    stream?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-                }.getOrNull()
-            }
-        }
+        value = PosterLoader.load(context, uri)
     }
     return image
 }

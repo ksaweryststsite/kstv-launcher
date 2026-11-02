@@ -344,24 +344,13 @@ private fun ThemeTwoShelf(
     val hasFirstLeftTile = uiState.shelfMode == ShelfMode.WatchNext ||
         (uiState.shelfMode == ShelfMode.AppShortcuts && uiState.featuredApps.isNotEmpty())
 
-    androidx.compose.runtime.LaunchedEffect(
-        homeFocusRequest,
-        uiState.homeFocusMode,
-        uiState.shelfMode,
-        uiState.watchNextStatus,
-        uiState.featuredApps.firstOrNull()?.componentName,
-        uiState.favorites.firstOrNull()?.componentName,
-    ) {
-        if (homeFocusRequest <= 0) return@LaunchedEffect
-        when (uiState.homeFocusMode) {
-            HomeFocusMode.FirstLargeTile -> {
-                if (hasFirstLeftTile) firstLeftFocusRequester.requestFocus()
-                else if (uiState.favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
+    androidx.compose.runtime.LaunchedEffect(homeFocusRequest, uiState.favorites.firstOrNull()?.componentName) {
+        if (homeFocusRequest <= 0 || uiState.favorites.isEmpty()) return@LaunchedEffect
+        repeat(4) {
+            delay(40L)
+            if (runCatching { firstFavoriteFocusRequester.requestFocus() }.getOrDefault(false)) {
+                return@LaunchedEffect
             }
-            HomeFocusMode.FirstFavorite -> {
-                if (uiState.favorites.isNotEmpty()) firstFavoriteFocusRequester.requestFocus()
-            }
-            HomeFocusMode.KeepCurrent -> Unit
         }
     }
 
@@ -764,18 +753,7 @@ private fun ThemeTwoFocusable(
 private fun themeTwoUriImage(uri: String?): ImageBitmap? {
     val context = LocalContext.current
     val image by produceState<ImageBitmap?>(initialValue = null, key1 = uri) {
-        value = uri?.let { value ->
-            withContext(Dispatchers.IO) {
-                runCatching {
-                    val parsed = Uri.parse(value)
-                    val stream = when (parsed.scheme) {
-                        "http", "https" -> URL(value).openStream()
-                        else -> context.contentResolver.openInputStream(parsed)
-                    }
-                    stream?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-                }.getOrNull()
-            }
-        }
+        value = PosterLoader.load(context, uri)
     }
     return image
 }
