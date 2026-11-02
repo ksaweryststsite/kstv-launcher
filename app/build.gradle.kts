@@ -12,8 +12,8 @@ android {
         applicationId = "pl.ksawery.ktvlauncher"
         minSdk = 30
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.0.0-beta.11"
+        versionCode = 32
+        versionName = "1.0.0-beta.12-performance"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
@@ -33,7 +33,9 @@ android {
             signingConfig = signingConfigs.getByName("development")
         }
         release {
+            signingConfig = signingConfigs.getByName("development")
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

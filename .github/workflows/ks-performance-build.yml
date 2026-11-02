@@ -41,15 +41,15 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Build KS V2 Performance APK
-        run: gradle --no-daemon assembleDebug --stacktrace
+        run: gradle --no-daemon assembleRelease --stacktrace
       - name: Name APK and fingerprint
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk out/KS_V2_Performance_test.apk
+          cp app/build/outputs/apk/release/app-release.apk out/KS_V2_Performance_release.apk
           sha256sum out/KS_V2_Performance_test.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: KS_V2_Performance_APK
+          name: KS_V2_Performance_Release_APK
           path: out/*.apk
           retention-days: 7
           if-no-files-found: error
