@@ -54,6 +54,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -570,6 +572,7 @@ private fun GtvFocusSurface(
     var longTriggered by remember { mutableStateOf(false) }
     var pressJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val trackedBounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
     val animationMode = LocalFocusAnimationMode.current
     val focusScale = when (animationMode) {
         FocusAnimationMode.Off, FocusAnimationMode.Fade -> 1f
@@ -595,11 +598,17 @@ private fun GtvFocusSurface(
             }
             .onFocusChanged {
                 focused = it.isFocused
+                if (focused) trackedBounds[0]?.let { bounds -> AppLaunchAnchor.focusedBounds = bounds }
                 if (!focused) {
                     pressJob?.cancel()
                     pressJob = null
                     keyDown = false
                 }
+            }
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInRoot()
+                trackedBounds[0] = bounds
+                if (focused) AppLaunchAnchor.focusedBounds = bounds
             }
             .onKeyEvent { event ->
                 val ok = event.key == Key.DirectionCenter ||

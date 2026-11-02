@@ -53,6 +53,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -689,6 +691,7 @@ private fun ThemeTwoFocusable(
     var longPressTriggered by remember { mutableStateOf(false) }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val trackedBounds = remember { arrayOfNulls<androidx.compose.ui.geometry.Rect>(1) }
     val animationMode = LocalFocusAnimationMode.current
     val focusScale = when (animationMode) {
         FocusAnimationMode.Off, FocusAnimationMode.Fade -> 1f
@@ -725,7 +728,15 @@ private fun ThemeTwoFocusable(
                 if (focused) Color(0xFFF6F8FB) else Color.Transparent,
                 shape,
             )
-            .onFocusChanged { focused = it.isFocused }
+            .onFocusChanged {
+                focused = it.isFocused
+                if (focused) trackedBounds[0]?.let { bounds -> AppLaunchAnchor.focusedBounds = bounds }
+            }
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInRoot()
+                trackedBounds[0] = bounds
+                if (focused) AppLaunchAnchor.focusedBounds = bounds
+            }
             .onKeyEvent { event ->
                 val isActivation = event.key == Key.DirectionCenter ||
                     event.key == Key.Enter ||
