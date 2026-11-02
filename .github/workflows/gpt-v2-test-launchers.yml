@@ -1,0 +1,73 @@
+name: Google TV GPT V2 - Build test launchers
+
+on:
+  push:
+    branches:
+      - gpt-v2-apk-build-20261102
+    paths:
+      - .github/workflows/gpt-v2-test-launchers.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.label }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: TCL_GTV_TEST
+            repository: alexkev/tcl-gtv-launcher
+            revision: 7a7bff198096b3ecc6d43dc0d10e12d173ab5538
+          - label: SFERADEV_GTV_TEST
+            repository: SferaDev/android-tv
+            revision: 6f84f3facc450c51aad95f1974db575736656bb3
+
+    steps:
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 34
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Clone pinned public source
+        shell: bash
+        env:
+          REPO: ${{ matrix.repository }}
+          REV: ${{ matrix.revision }}
+        run: |
+          git clone --filter=blob:none "https://github.com/${REPO}.git" source
+          git -C source checkout --detach "${REV}"
+
+      - name: Build Android debug APK
+        shell: bash
+        run: |
+          cd source/launcher
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug --stacktrace
+
+      - name: Rename APK
+        shell: bash
+        env:
+          LABEL: ${{ matrix.label }}
+        run: |
+          mkdir -p out
+          cp source/launcher/app/build/outputs/apk/debug/app-debug.apk "out/${LABEL}.apk"
+          sha256sum "out/${LABEL}.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.label }}
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 7
