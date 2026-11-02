@@ -68,6 +68,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import pl.ksawery.ktvlauncher.model.FocusAnimationMode
 import pl.ksawery.ktvlauncher.model.HomeFocusMode
 import pl.ksawery.ktvlauncher.model.LaunchableApp
 import pl.ksawery.ktvlauncher.model.MediaPlaybackInfo
@@ -688,10 +689,21 @@ private fun ThemeTwoFocusable(
     var longPressTriggered by remember { mutableStateOf(false) }
     var longPressJob by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
+    val animationMode = LocalFocusAnimationMode.current
+    val focusScale = when (animationMode) {
+        FocusAnimationMode.Off, FocusAnimationMode.Fade -> 1f
+        FocusAnimationMode.GoogleTV -> 1.045f
+        FocusAnimationMode.AppleTV -> 1.13f
+    }
     val scale by animateFloatAsState(
-        targetValue = if (focused) 1.045f else 1f,
-        animationSpec = tween(120),
+        targetValue = if (focused) focusScale else 1f,
+        animationSpec = tween(if (animationMode == FocusAnimationMode.AppleTV) 175 else 120),
         label = "themeTwoFocus",
+    )
+    val fadeAlpha by animateFloatAsState(
+        targetValue = if (animationMode == FocusAnimationMode.Fade && !focused) 0.78f else 1f,
+        animationSpec = tween(150),
+        label = "themeTwoFade",
     )
     Box(
         modifier = modifier
@@ -699,6 +711,7 @@ private fun ThemeTwoFocusable(
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
+                alpha = fadeAlpha
                 this.shape = shape
                 clip = true
             }
