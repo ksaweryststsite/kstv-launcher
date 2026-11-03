@@ -43,6 +43,7 @@ jobs:
           set -euxo pipefail
           mkdir -p /tmp/prime-android/app/src/main/java/test/offline
           cd /tmp/prime-android
+          printf 'android.useAndroidX=true\n' > gradle.properties
           cat > settings.gradle.kts <<'GRADLEEOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
